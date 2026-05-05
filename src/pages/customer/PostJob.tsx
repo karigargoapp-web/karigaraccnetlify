@@ -10,7 +10,7 @@ import { SERVICE_CATEGORIES } from '../../types'
 import LocationPicker from '../../components/LocationPicker'
 import LocationAutocomplete from '../../components/LocationAutocomplete'
 import toast from 'react-hot-toast'
-import { validateJobBudget, validateJobDescription, validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
+import { validateJobDescription, validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
 
 interface MediaItem {
   file: File
@@ -55,7 +55,6 @@ export default function PostJob() {
   const [location, setLocation] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
-  const [budget, setBudget] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
@@ -169,7 +168,6 @@ export default function PostJob() {
     const err =
       validateJobTitle(title) ||
       validateJobDescription(description) ||
-      validateJobBudget(budget) ||
       validateVoiceNote(voiceBlob, { required: true }) ||
       (!mediaItems.find(m => m.type === 'image') ? 'Please add a photo showing the problem' : null) ||
       validateJobDate(date)
@@ -221,7 +219,6 @@ export default function PostJob() {
         location,
         latitude: latitude || null,
         longitude: longitude || null,
-        budget: Number(budget),
         date: date || null,
         time: time || null,
         image_url: imageUrlValue,
@@ -428,19 +425,8 @@ export default function PostJob() {
           )}
         </div>
 
-        {/* Budget + Date/Time */}
+        {/* Date/Time */}
         <div className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-text-primary mb-1.5 block">
-              Budget (PKR) *
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 2500"
-              value={budget}
-              onChange={e => setBudget(e.target.value)}
-            />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-text-primary mb-1.5 flex items-center gap-1">
