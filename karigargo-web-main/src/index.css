@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== KarigarGo Design System ===== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f5f5f5;
+  color: #333;
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  background-color: #e8e8e8;
+}
+
+/* Mobile container - centers the app in a phone-width column */
+.app-shell {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100dvh;
+  background-color: #f5f5f5;
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+/* ===== Toast Notification Animations ===== */
+@keyframes enter {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes leave {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-enter {
+  animation: enter 0.3s ease-out;
+}
+
+.animate-leave {
+  animation: leave 0.2s ease-in;
+}
+
+/* ===== Status pills ===== */
+.pill-pending { @apply bg-warning text-white text-xs font-medium px-3 py-1 rounded-full; }
+.pill-active { @apply bg-primary-light text-white text-xs font-medium px-3 py-1 rounded-full; }
+.pill-completed { @apply bg-primary text-white text-xs font-medium px-3 py-1 rounded-full; }
+.pill-rejected { @apply bg-danger text-white text-xs font-medium px-3 py-1 rounded-full; }
+
+/* ===== Card ===== */
+.card {
+  @apply bg-white rounded-card shadow-sm;
+}
+
+/* ===== Inputs ===== */
+input, textarea, select {
+  @apply w-full px-4 py-3 rounded-xl border border-border bg-white text-sm text-text-primary outline-none transition-all duration-200;
+}
+input:focus, textarea:focus, select:focus {
+  @apply border-primary ring-2 ring-primary/10;
+}
+input::placeholder, textarea::placeholder {
+  @apply text-text-muted;
+}
+
+/* ===== Buttons ===== */
+.btn-primary {
+  @apply w-full py-3.5 bg-primary text-white font-semibold rounded-2xl text-sm
+         active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-ghost {
+  @apply w-full py-3.5 bg-transparent border border-border text-text-primary font-medium rounded-2xl text-sm
+         active:scale-[0.98] transition-all duration-150;
+}
+.btn-danger {
+  @apply w-full py-3.5 bg-danger text-white font-semibold rounded-2xl text-sm
+         active:scale-[0.98] transition-all duration-150;
+}
+
+/* ===== Top Bar ===== */
+.top-bar {
+  @apply bg-primary px-6 pt-10 pb-6 rounded-b-3xl;
+}
+
+/* ===== Bottom Nav ===== */
+.bottom-nav {
+  @apply flex justify-around items-center bg-white border-t border-border py-3 pb-6;
+}
+.bottom-nav button {
+  @apply flex flex-col items-center gap-1 text-text-muted text-xs;
+}
+.bottom-nav button.active {
+  @apply text-primary font-medium;
+}
+
+/* ===== Section ===== */
+.section-title {
+  @apply text-base font-semibold text-text-primary mb-3;
+}
+
+/* ===== Leaflet map overrides ===== */
+.leaflet-container {
+  border-radius: 12px;
+  z-index: 1;
+}
+
+/* ===== Stars ===== */
+.star-filled { color: #FFB800; }
+.star-empty { color: #ddd; }
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.5); }
+}

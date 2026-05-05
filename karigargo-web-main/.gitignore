@@ -1,0 +1,9 @@
+# Legacy Expo / RN reference UI — not part of this repo (keep local only)
+karigargoapp-old-ui/
+.DS_Store
+node_modules/
+dist/
+build/
+*.log
+
+# Secrets — keep .env.example tracked
