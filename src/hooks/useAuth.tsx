@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const intendedPortal = sessionStorage.getItem('auth-intended-portal')
         if (intendedPortal) {
           sessionStorage.removeItem('auth-intended-portal')
-          if (data.role !== intendedPortal) {
+          if (data.role !== intendedPortal && data.role !== 'admin') {
             await supabase.auth.signOut({ scope: 'local' })
             const correctPage = data.role === 'worker' ? 'worker login' : 'customer login'
             sessionStorage.setItem(
