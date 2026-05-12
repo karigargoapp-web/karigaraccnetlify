@@ -12,12 +12,19 @@ export default function AdminUsers() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
+    const { data: usersData } = await supabase
       .from('users')
-      .select('*, wallets(balance, reward_points)')
-      .eq('role','customer')
-      .order('created_at',{ascending:false})
-    if (data) setUsers(data)
+      .select('*')
+      .eq('role', 'customer')
+      .order('created_at', { ascending: false })
+    if (usersData && usersData.length > 0) {
+      const ids = usersData.map(u => u.id)
+      const { data: wallets } = await supabase.from('wallets').select('*').in('user_id', ids)
+      const walletMap = Object.fromEntries((wallets || []).map(w => [w.user_id, w]))
+      setUsers(usersData.map(u => ({ ...u, wallet: walletMap[u.id] || null })))
+    } else {
+      setUsers([])
+    }
     setLoading(false)
   }, [])
 
@@ -46,10 +53,7 @@ export default function AdminUsers() {
     u.city?.toLowerCase().includes(search.toLowerCase())
   )
 
-  const getWallet = (u: any) => {
-    if (Array.isArray(u.wallets)) return u.wallets[0]
-    return u.wallets
-  }
+  const getWallet = (u: any) => u.wallet
 
   return (
     <div className="space-y-5">

@@ -18,14 +18,21 @@ export default function AdminWorkers() {
 
   const fetchWorkers = useCallback(async () => {
     setLoading(true)
-    const [{ data }, { count: p }, { count: a }, { count: r }] = await Promise.all([
-      supabase.from('users').select('*, worker_profiles(*)').eq('role','worker').eq('approval_status',tab).order('created_at',{ascending:false}),
-      supabase.from('users').select('*',{count:'exact',head:true}).eq('role','worker').eq('approval_status','pending'),
-      supabase.from('users').select('*',{count:'exact',head:true}).eq('role','worker').eq('approval_status','approved'),
-      supabase.from('users').select('*',{count:'exact',head:true}).eq('role','worker').eq('approval_status','rejected'),
+    const [{ data: usersData }, { count: p }, { count: a }, { count: r }] = await Promise.all([
+      supabase.from('users').select('*').eq('role', 'worker').eq('approval_status', tab).order('created_at', { ascending: false }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'worker').eq('approval_status', 'pending'),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'worker').eq('approval_status', 'approved'),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'worker').eq('approval_status', 'rejected'),
     ])
-    if (data) setWorkers(data)
-    setCounts({ pending: p||0, approved: a||0, rejected: r||0 })
+    if (usersData && usersData.length > 0) {
+      const ids = usersData.map(u => u.id)
+      const { data: profiles } = await supabase.from('worker_profiles').select('*').in('user_id', ids)
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p]))
+      setWorkers(usersData.map(u => ({ ...u, worker_profile: profileMap[u.id] || null })))
+    } else {
+      setWorkers([])
+    }
+    setCounts({ pending: p || 0, approved: a || 0, rejected: r || 0 })
     setLoading(false)
   }, [tab])
 
@@ -127,7 +134,7 @@ function WorkerCard({ worker, tab, onApprove, onReject, onView }: any) {
   const [showReject, setShowReject] = useState(false)
   const [reason, setReason] = useState('')
   const [approving, setApproving] = useState(false)
-  const wp = Array.isArray(worker.worker_profiles) ? worker.worker_profiles[0] : worker.worker_profiles
+  const wp = worker.worker_profile
 
   async function handleApprove() {
     setApproving(true)

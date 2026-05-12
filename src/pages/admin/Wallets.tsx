@@ -28,18 +28,20 @@ export default function AdminWallets() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [
-      { data: w },
-      { data: e },
-      { data: comms },
-      { data: fees },
-    ] = await Promise.all([
-      supabase.from('wallets').select('*, users(name,role,email,phone)').order('balance',{ascending:false}),
-      supabase.from('escrow').select('*, jobs(title,customer_name,worker_name,status)').order('created_at',{ascending:false}),
-      supabase.from('wallet_transactions').select('amount').eq('type','commission'),
-      supabase.from('wallet_transactions').select('amount').eq('type','bidding_fee'),
+    const [{ data: w }, { data: e }, { data: comms }, { data: fees }] = await Promise.all([
+      supabase.from('wallets').select('*').order('balance', { ascending: false }),
+      supabase.from('escrow').select('*, jobs(title,customer_name,worker_name,status)').order('created_at', { ascending: false }),
+      supabase.from('wallet_transactions').select('amount').eq('type', 'commission'),
+      supabase.from('wallet_transactions').select('amount').eq('type', 'bidding_fee'),
     ])
-    if (w) setWallets(w)
+    if (w && w.length > 0) {
+      const ids = w.map((x: any) => x.user_id)
+      const { data: usrs } = await supabase.from('users').select('id,name,role,email,phone').in('id', ids)
+      const userMap = Object.fromEntries((usrs || []).map(u => [u.id, u]))
+      setWallets(w.map((x: any) => ({ ...x, user: userMap[x.user_id] || null })))
+    } else {
+      setWallets([])
+    }
     if (e) setEscrows(e)
     setSummary({
       totalEscrow: e?.filter(x=>['inspection_held','work_held'].includes(x.status)).reduce((s,r)=>s+(r.total_locked||0),0)||0,
@@ -48,16 +50,23 @@ export default function AdminWallets() {
       biddingFees: fees?.reduce((s,r)=>s+(r.amount||0),0)||0,
     })
     if (tab === 'transactions') {
-      const { data: t } = await supabase.from('wallet_transactions').select('*, users(name,role)').order('created_at',{ascending:false}).limit(100)
-      if (t) setTransactions(t)
+      const { data: t } = await supabase.from('wallet_transactions').select('*').order('created_at', { ascending: false }).limit(100)
+      if (t && t.length > 0) {
+        const ids = [...new Set(t.map((x: any) => x.user_id))]
+        const { data: usrs } = await supabase.from('users').select('id,name,role').in('id', ids)
+        const userMap = Object.fromEntries((usrs || []).map(u => [u.id, u]))
+        setTransactions(t.map((x: any) => ({ ...x, user: userMap[x.user_id] || null })))
+      } else {
+        setTransactions([])
+      }
     }
     setLoading(false)
   }, [tab])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const filteredWallets = wallets.filter(w => !search || w.users?.name?.toLowerCase().includes(search.toLowerCase()) || w.users?.email?.toLowerCase().includes(search.toLowerCase()))
-  const filteredTx = transactions.filter(t => !search || t.users?.name?.toLowerCase().includes(search.toLowerCase()) || t.description?.toLowerCase().includes(search.toLowerCase()))
+  const filteredWallets = wallets.filter(w => !search || w.user?.name?.toLowerCase().includes(search.toLowerCase()) || w.user?.email?.toLowerCase().includes(search.toLowerCase()))
+  const filteredTx = transactions.filter(t => !search || t.user?.name?.toLowerCase().includes(search.toLowerCase()) || t.description?.toLowerCase().includes(search.toLowerCase()))
   const filteredEscrows = escrows.filter(e => !search || e.jobs?.title?.toLowerCase().includes(search.toLowerCase()) || e.jobs?.customer_name?.toLowerCase().includes(search.toLowerCase()))
 
   const ESCROW_COLOR: Record<string,string> = {
@@ -116,13 +125,13 @@ export default function AdminWallets() {
           {tab==='overview' && filteredWallets.map(w => (
             <div key={w.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${w.users?.role==='worker' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {w.users?.name?.[0]?.toUpperCase()||'?'}
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${w.user?.role==='worker' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {w.user?.name?.[0]?.toUpperCase()||'?'}
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 text-sm">{w.users?.name||'Unknown'}</p>
-                  <p className="text-xs text-gray-400">{w.users?.email}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${w.users?.role==='worker' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>{w.users?.role}</span>
+                  <p className="font-semibold text-gray-900 text-sm">{w.user?.name||'Unknown'}</p>
+                  <p className="text-xs text-gray-400">{w.user?.email}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${w.user?.role==='worker' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>{w.user?.role}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -140,7 +149,7 @@ export default function AdminWallets() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 text-sm">{TX_LABEL[t.type]||t.type}</p>
-                  <p className="text-xs text-gray-400">{t.users?.name} · {new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>
+                  <p className="text-xs text-gray-400">{t.user?.name} · {new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>
                   {t.description && <p className="text-xs text-gray-400 truncate max-w-xs">{t.description}</p>}
                 </div>
               </div>

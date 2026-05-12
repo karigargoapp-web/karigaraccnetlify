@@ -22,11 +22,11 @@ export default function AdminWorkerDetail() {
 
   async function fetchAll() {
     setLoading(true)
-    const [{ data:u },{ data:wp },{ data:j },{ data:w }] = await Promise.all([
-      supabase.from('users').select('*').eq('id',workerId).single(),
-      supabase.from('worker_profiles').select('*').eq('user_id',workerId).single(),
-      supabase.from('jobs').select('id,title,status,created_at,work_cost_total,inspection_charges,customer_name').eq('worker_id',workerId).order('created_at',{ascending:false}).limit(10),
-      supabase.from('wallets').select('*').eq('user_id',workerId).single(),
+    const [{ data: u }, { data: wp }, { data: j }, { data: w }] = await Promise.all([
+      supabase.from('users').select('*').eq('id', workerId).single(),
+      supabase.from('worker_profiles').select('*').eq('user_id', workerId).maybeSingle(),
+      supabase.from('jobs').select('id,title,status,created_at,work_cost_total,inspection_charges,customer_name').eq('worker_id', workerId).order('created_at', { ascending: false }).limit(10),
+      supabase.from('wallets').select('*').eq('user_id', workerId).maybeSingle(),
     ])
     if (u) setWorker(u)
     if (wp) setProfile(wp)
