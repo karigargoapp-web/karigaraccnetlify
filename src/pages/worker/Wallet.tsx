@@ -26,7 +26,7 @@ export default function WorkerWallet() {
   }, [user])
 
   const TX_LABEL: Record<string, string> = {
-    top_up: 'Wallet Top Up',
+    top_up: 'Welcome Bonus / Top Up',
     inspection_payment: 'Inspection Fee Paid',
     escrow_lock: 'Job Amount Locked',
     escrow_release: 'Job Payment Received',
@@ -100,10 +100,25 @@ export default function WorkerWallet() {
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <p className="text-sm font-semibold text-text-primary mb-1">Bidding Fee</p>
           <p className="text-xs text-text-muted mb-4">A ₨{BIDDING_FEE} fee is charged when a customer accepts your quote and work begins.</p>
+
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-3">
+            <p className="text-sm font-bold text-green-800">🎁 Welcome Bonus — ₨100</p>
+            <p className="text-xs text-green-700 mt-1 leading-relaxed">
+              You received ₨100 as a signup gift. This covers your first 5 bids at ₨20 each — completely free. After that, top up your wallet to keep bidding.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex-1 h-2 bg-green-200 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min((balance / 100) * 100, 100)}%` }} />
+              </div>
+              <span className="text-xs font-semibold text-green-700">₨{balance}/100</span>
+            </div>
+            <p className="text-xs text-green-600 mt-1">{Math.floor(balance / BIDDING_FEE)} bids remaining from bonus</p>
+          </div>
+
           <div className={`flex items-center gap-2 p-3 rounded-xl ${lowBalance ? 'bg-red-50' : 'bg-green-50'}`}>
             <div className={`w-2 h-2 rounded-full ${lowBalance ? 'bg-red-400' : 'bg-green-400'}`} />
             <p className={`text-xs font-medium ${lowBalance ? 'text-red-700' : 'text-green-700'}`}>
-              {lowBalance ? 'Insufficient balance to bid' : 'You can bid on jobs'}
+              {lowBalance ? 'Insufficient balance — top up to bid' : `₨${balance} available — you can bid on jobs`}
             </p>
           </div>
         </div>

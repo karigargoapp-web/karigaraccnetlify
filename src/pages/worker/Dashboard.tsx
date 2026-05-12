@@ -4,7 +4,7 @@ import { IoHome, IoBriefcase, IoWallet, IoPerson, IoLocation, IoCalendar, IoCash
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import NotificationBell from '../../components/NotificationBell'
-import { SERVICE_CATEGORIES } from '../../types'
+import { SERVICE_CATEGORIES, BIDDING_FEE } from '../../types'
 import type { Job, WorkerProfile as WP } from '../../types'
 
 export default function WorkerDashboard() {
@@ -95,7 +95,7 @@ export default function WorkerDashboard() {
             <IoTime className="text-amber-200 text-lg flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-amber-100 text-sm font-medium">Account Pending Approval</p>
-              <p className="text-amber-200/80 text-xs mt-0.5">You cannot bid on jobs until an admin approves your account.</p>
+              <p className="text-amber-200/80 text-xs mt-0.5">You need at least ₨{BIDDING_FEE} to bid. Top up your wallet or use your ₨100 welcome bonus.</p>
             </div>
           </div>
         )}
