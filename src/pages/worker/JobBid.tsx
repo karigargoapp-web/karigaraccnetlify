@@ -61,7 +61,7 @@ export default function JobBid() {
     }
     const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).maybeSingle()
     if (!wallet || wallet.balance < 20) {
-      return toast.error('You need at least ₨20 wallet balance to place a bid.')
+      return toast.error('Insufficient wallet balance. You need ₨20 to bid. Go to Profile → My Wallet to top up.')
     }
     setLoading(true)
 

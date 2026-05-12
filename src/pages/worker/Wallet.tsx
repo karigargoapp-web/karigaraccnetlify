@@ -40,6 +40,7 @@ export default function WorkerWallet() {
 
   const balance = wallet?.balance || 0
   const lowBalance = balance < BIDDING_FEE
+  const bidsRemaining = Math.min(Math.floor(balance / BIDDING_FEE), 5)
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
@@ -70,10 +71,31 @@ export default function WorkerWallet() {
             <IoWarning className="text-amber-500 text-xl flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-amber-800">Low Balance Warning</p>
-              <p className="text-xs text-amber-700 mt-0.5">You need at least ₨{BIDDING_FEE} to bid on jobs. Current balance: ₨{balance}</p>
+              <p className="text-xs text-amber-700 mt-0.5">You need at least ₨{BIDDING_FEE} to bid on jobs. Top up your wallet to continue bidding.</p>
             </div>
           </div>
         )}
+
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-text-primary">Welcome Bonus 🎁</p>
+            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">₨100 gift</span>
+          </div>
+          <p className="text-xs text-text-muted leading-relaxed mb-4">
+            KarigarGo gives every new worker ₨100 to start bidding. Each bid costs ₨20, so your first 5 bids are on us. After that, top up your wallet to keep bidding. Platform commission (10%) always applies on completed jobs.
+          </p>
+          <div className="flex items-center gap-2">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className={`flex-1 h-2 rounded-full ${i <= (5 - bidsRemaining) ? 'bg-gray-200' : 'bg-primary'}`} />
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            {bidsRemaining > 0
+              ? `${bidsRemaining} free bid${bidsRemaining > 1 ? 's' : ''} remaining from welcome bonus`
+              : 'Welcome bonus used — top up to continue bidding'
+            }
+          </p>
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <p className="text-sm font-semibold text-text-primary mb-1">Bidding Fee</p>
