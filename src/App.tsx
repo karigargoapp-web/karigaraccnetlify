@@ -3,7 +3,7 @@ import { AppRouter } from './router'
 
 export default function App() {
   return (
-    <div className="app-shell">
+    <>
       <Toaster
         position="top-center"
         toastOptions={{
@@ -12,6 +12,6 @@ export default function App() {
         }}
       />
       <AppRouter />
-    </div>
+    </>
   )
 }

@@ -107,67 +107,78 @@ function ProfileCompletionRoute() {
   return <Outlet />
 }
 
+function AppShell() {
+  return (
+    <div className="app-shell">
+      <Outlet />
+    </div>
+  )
+}
+
 export function AppRouter() {
   return (
     <AuthProvider>
       <BrowserNotificationPrompt />
       <Routes>
-        <Route element={<AuthRoute />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/login/worker" element={<WorkerLogin />} />
-          <Route path="/signup/customer" element={<CustomerSignup />} />
-        </Route>
 
-        <Route path="/signup/worker" element={<WorkerSignup />} />
-        <Route path="/email-confirmed" element={<EmailConfirmed />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/worker/pending-approval" element={<PendingApproval />} />
+        <Route element={<AppShell />}>
+          <Route element={<AuthRoute />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/login/worker" element={<WorkerLogin />} />
+            <Route path="/signup/customer" element={<CustomerSignup />} />
+          </Route>
 
-        <Route element={<ProfileCompletionRoute />}>
-          <Route path="/complete-profile/customer" element={<CompleteCustomerProfile />} />
-          <Route path="/complete-profile/worker" element={<CompleteWorkerProfile />} />
-        </Route>
+          <Route path="/signup/worker" element={<WorkerSignup />} />
+          <Route path="/email-confirmed" element={<EmailConfirmed />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/worker/pending-approval" element={<PendingApproval />} />
 
-        <Route element={<ProtectedRoute allowedRoles={['customer']} />}>
-          <Route path="/customer/home" element={<CustomerHome />} />
-          <Route path="/customer/post-job" element={<PostJob />} />
-          <Route path="/customer/my-jobs" element={<CustomerMyJobs />} />
-          <Route path="/customer/job/:jobId" element={<CustomerJobDetail />} />
-          <Route path="/customer/active-job/:jobId" element={<CustomerActiveJob />} />
-          <Route path="/customer/receipt/:jobId" element={<CustomerReceipt />} />
-          <Route path="/customer/review/:jobId" element={<ReviewWorker />} />
-          <Route path="/customer/worker/:workerId" element={<ViewWorkerProfile />} />
-          <Route path="/customer/job-summary/:jobId" element={<CustomerJobSummary />} />
-          <Route path="/customer/tracking/:jobId" element={<TrackingScreen />} />
-          <Route path="/customer/profile" element={<CustomerProfile />} />
-          <Route path="/customer/wallet" element={<CustomerWallet />} />
-        </Route>
+          <Route element={<ProfileCompletionRoute />}>
+            <Route path="/complete-profile/customer" element={<CompleteCustomerProfile />} />
+            <Route path="/complete-profile/worker" element={<CompleteWorkerProfile />} />
+          </Route>
 
-        <Route element={<ProtectedRoute />}>
-          <Route path="/customer/messages" element={<CustomerMessages />} />
-          <Route path="/customer/notifications" element={<CustomerNotifications />} />
-          <Route path="/customer/change-password" element={<ChangePassword />} />
-          <Route path="/customer/personal-info" element={<CustomerPersonalInfo />} />
-          <Route path="/chat/:jobId" element={<ChatPage />} />
-          <Route path="/help-support" element={<HelpSupport />} />
-          <Route path="/language" element={<LanguageSelection />} />
-        </Route>
+          <Route element={<ProtectedRoute allowedRoles={['customer']} />}>
+            <Route path="/customer/home" element={<CustomerHome />} />
+            <Route path="/customer/post-job" element={<PostJob />} />
+            <Route path="/customer/my-jobs" element={<CustomerMyJobs />} />
+            <Route path="/customer/job/:jobId" element={<CustomerJobDetail />} />
+            <Route path="/customer/active-job/:jobId" element={<CustomerActiveJob />} />
+            <Route path="/customer/receipt/:jobId" element={<CustomerReceipt />} />
+            <Route path="/customer/review/:jobId" element={<ReviewWorker />} />
+            <Route path="/customer/worker/:workerId" element={<ViewWorkerProfile />} />
+            <Route path="/customer/job-summary/:jobId" element={<CustomerJobSummary />} />
+            <Route path="/customer/tracking/:jobId" element={<TrackingScreen />} />
+            <Route path="/customer/profile" element={<CustomerProfile />} />
+            <Route path="/customer/wallet" element={<CustomerWallet />} />
+          </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
-          <Route path="/worker/dashboard" element={<WorkerDashboard />} />
-          <Route path="/worker/job/:jobId" element={<JobBid />} />
-          <Route path="/worker/active-job/:jobId" element={<WorkerActiveJob />} />
-          <Route path="/worker/my-bids" element={<WorkerMyBids />} />
-          <Route path="/worker/earnings" element={<WorkerEarnings />} />
-          <Route path="/worker/reviews" element={<WorkerReviews />} />
-          <Route path="/worker/review-customer/:jobId" element={<ReviewCustomer />} />
-          <Route path="/worker/messages" element={<WorkerMessages />} />
-          <Route path="/worker/profile" element={<WorkerProfile />} />
-          <Route path="/worker/wallet" element={<WorkerWallet />} />
-          <Route path="/worker/change-password" element={<WorkerChangePassword />} />
-          <Route path="/worker/personal-info" element={<WorkerPersonalInfo />} />
-          <Route path="/worker/job-summary/:jobId" element={<WorkerJobSummary />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/customer/messages" element={<CustomerMessages />} />
+            <Route path="/customer/notifications" element={<CustomerNotifications />} />
+            <Route path="/customer/change-password" element={<ChangePassword />} />
+            <Route path="/customer/personal-info" element={<CustomerPersonalInfo />} />
+            <Route path="/chat/:jobId" element={<ChatPage />} />
+            <Route path="/help-support" element={<HelpSupport />} />
+            <Route path="/language" element={<LanguageSelection />} />
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={['worker']} />}>
+            <Route path="/worker/dashboard" element={<WorkerDashboard />} />
+            <Route path="/worker/job/:jobId" element={<JobBid />} />
+            <Route path="/worker/active-job/:jobId" element={<WorkerActiveJob />} />
+            <Route path="/worker/my-bids" element={<WorkerMyBids />} />
+            <Route path="/worker/earnings" element={<WorkerEarnings />} />
+            <Route path="/worker/reviews" element={<WorkerReviews />} />
+            <Route path="/worker/review-customer/:jobId" element={<ReviewCustomer />} />
+            <Route path="/worker/messages" element={<WorkerMessages />} />
+            <Route path="/worker/profile" element={<WorkerProfile />} />
+            <Route path="/worker/wallet" element={<WorkerWallet />} />
+            <Route path="/worker/change-password" element={<WorkerChangePassword />} />
+            <Route path="/worker/personal-info" element={<WorkerPersonalInfo />} />
+            <Route path="/worker/job-summary/:jobId" element={<WorkerJobSummary />} />
+          </Route>
         </Route>
 
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
