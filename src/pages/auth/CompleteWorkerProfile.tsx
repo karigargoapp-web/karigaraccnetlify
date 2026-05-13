@@ -96,14 +96,18 @@ export default function CompleteWorkerProfile() {
 
       const { error: profileErr } = await supabase
         .from('worker_profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
           skills,
           bio: bio || null,
           cnic: cnicFormatted,
           cnic_front_url: cnicFrontUrl,
           cnic_back_url: cnicBackUrl,
           certificate_urls: certUrls.length > 0 ? certUrls : null,
-        })
+          avg_rating: 0,
+          total_jobs: 0,
+          total_earnings: 0,
+        }, { onConflict: 'user_id' })
         .eq('user_id', user.id)
       if (profileErr) throw profileErr
 
@@ -111,7 +115,8 @@ export default function CompleteWorkerProfile() {
       toast.success('Profile completed!')
       nav('/worker/dashboard', { replace: true })
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Something went wrong. Try again.')
+      const msg = e instanceof Error ? e.message : JSON.stringify(e)
+      toast.error(msg || 'Something went wrong. Try again.')
     } finally {
       setLoading(false)
       lockRef.current = false

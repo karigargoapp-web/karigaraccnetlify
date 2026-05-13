@@ -67,7 +67,8 @@ export default function CompleteCustomerProfile() {
       toast.success('Profile completed!')
       nav('/customer/home', { replace: true })
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Something went wrong. Try again.')
+      const msg = e instanceof Error ? e.message : JSON.stringify(e)
+      toast.error(msg || 'Something went wrong. Try again.')
     } finally {
       setLoading(false)
       lockRef.current = false
