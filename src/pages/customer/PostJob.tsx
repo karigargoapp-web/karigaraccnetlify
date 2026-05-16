@@ -10,7 +10,7 @@ import { SERVICE_CATEGORIES } from '../../types'
 import LocationPicker from '../../components/LocationPicker'
 import LocationAutocomplete from '../../components/LocationAutocomplete'
 import toast from 'react-hot-toast'
-import { validateJobDescription, validateJobTitle, validateMediaItems, validateJobDate } from '../../lib/validation'
+import { validateJobDescription, validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
 
 interface MediaItem {
   file: File
@@ -168,6 +168,7 @@ export default function PostJob() {
     const err =
       validateJobTitle(title) ||
       validateJobDescription(description) ||
+      validateVoiceNote(voiceBlob, { required: true }) ||
       (!mediaItems.find(m => m.type === 'image') ? 'Please add a photo showing the problem' : null) ||
       validateJobDate(date)
     if (err) return toast.error(err)
@@ -179,15 +180,18 @@ export default function PostJob() {
     try {
       const ts = Date.now()
 
+      const uploadWithTimeout = <T,>(promise: Promise<T>, ms = 30000): Promise<T> =>
+        Promise.race([promise, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Upload timed out. Check your connection.')), ms))])
+
       const mediaUploadTasks = mediaItems.map(async (item, i) => {
         const fileToUpload = item.type === 'image' ? await compressImage(item.file) : item.file
         const ext = item.type === 'video' ? 'mp4' : 'jpg'
         const prefix = item.type === 'video' ? 'video' : 'img'
         const path = `jobs/${prefix}_${user.id}_${ts}_${i}.${ext}`
-        const { error: upErr } = await supabase.storage
-          .from('job-images')
-          .upload(path, fileToUpload, { contentType: item.type === 'image' ? 'image/jpeg' : undefined })
-        if (upErr) throw new Error(`Upload failed: ${upErr.message}`)
+        const { error: upErr } = await uploadWithTimeout(
+          supabase.storage.from('job-images').upload(path, fileToUpload, { contentType: item.type === 'image' ? 'image/jpeg' : undefined })
+        )
+        if (upErr) throw new Error(`Upload failed: ${(upErr as any).message}`)
         return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
       })
 
@@ -195,7 +199,9 @@ export default function PostJob() {
         ? (async () => {
             const voiceFile = new File([voiceBlob], `voice_${ts}.webm`, { type: 'audio/webm' })
             const path = `voices/${user.id}_${ts}.webm`
-            const { error: vErr } = await supabase.storage.from('job-images').upload(path, voiceFile)
+            const { error: vErr } = await uploadWithTimeout(
+              supabase.storage.from('job-images').upload(path, voiceFile)
+            )
             if (vErr) return ''
             return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
           })()
@@ -229,8 +235,10 @@ export default function PostJob() {
       })
 
       if (error) { toast.error(error.message); return }
-      toast.success('Job posted!')
+      toast.success('Job posted successfully!')
       nav('/customer/home')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
