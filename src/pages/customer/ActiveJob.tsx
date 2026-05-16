@@ -59,15 +59,30 @@ export default function CustomerActiveJob() {
   const platformFee = Math.round(total * 0.1)
 
   const acceptWorkCost = async () => {
-    await supabase.from('jobs').update({ status: 'workCostAccepted' }).eq('id', jobId)
-    toast.success('Work cost accepted!')
+    if (!job) return
+    if (!job.worker_id) return toast.error('No worker assigned')
+    const { error } = await supabase.rpc('fn_lock_work_escrow', {
+      p_job_id: jobId,
+      p_customer_id: job.customer_id,
+      p_worker_id: job.worker_id,
+      p_work_amount: job.work_cost || 0,
+    })
+    if (error) {
+      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance to accept this job')
+      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance')
+      return toast.error(error.message)
+    }
+    await supabase.from('jobs').update({ status: 'inProgress' }).eq('id', jobId)
+    toast.success('Work cost accepted! Job is now in progress.')
   }
   const declineWorkCost = async () => {
+    await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
     await supabase.from('jobs').update({ status: 'workCostRejected', work_cost: 0 }).eq('id', jobId)
     toast('Work cost declined — only inspection fee applies.')
   }
   const markComplete = async () => {
-    await supabase.from('jobs').update({ status: 'completed' }).eq('id', jobId)
+    const { error } = await supabase.rpc('fn_complete_job', { p_job_id: jobId })
+    if (error) return toast.error(error.message)
     setShowConfirm(false)
     toast.success('Job marked as complete!')
     nav(`/customer/receipt/${jobId}`)
@@ -199,9 +214,28 @@ export default function CustomerActiveJob() {
         </div>
 
         {/* Actions */}
-        {job.status !== 'completed' ? (
-          <button onClick={() => setShowConfirm(true)} className="btn-primary">Mark Job Complete</button>
-        ) : (
+        {job.status === 'bidAccepted' && (
+          <button onClick={async () => {
+            await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
+            toast.success('Inspection marked complete!')
+          }} className="btn-primary">Mark Inspection Complete</button>
+        )}
+        {job.status === 'inspectionDone' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
+            <p className="text-sm font-medium text-blue-800">Inspection done</p>
+            <p className="text-xs text-blue-600 mt-1">Waiting for worker to propose work cost or you can end here.</p>
+            <button onClick={async () => {
+              await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+              await supabase.from('jobs').update({ status: 'workCostRejected' }).eq('id', jobId)
+              toast('Job ended at inspection.')
+              nav(`/customer/receipt/${jobId}`)
+            }} className="mt-3 w-full py-2.5 border border-blue-300 text-blue-700 text-sm font-medium rounded-xl">End Job Here (Pay Inspection Only)</button>
+          </div>
+        )}
+        {job.status === 'inProgress' && (
+          <button onClick={() => setShowConfirm(true)} className="btn-primary">✅ Mark Job Complete</button>
+        )}
+        {job.status === 'completed' && (
           <button onClick={() => nav(`/customer/receipt/${job.id}`)} className="btn-primary">View Receipt</button>
         )}
       </div>

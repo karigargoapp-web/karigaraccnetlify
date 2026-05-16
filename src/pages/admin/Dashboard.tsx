@@ -47,8 +47,8 @@ export default function AdminDashboard() {
         supabase.from('disputes').select('*', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'completed').gte('completed_at', new Date().toISOString().split('T')[0]),
         supabase.from('escrow').select('total_locked').in('status', ['inspection_held', 'work_held']),
-        supabase.from('wallet_transactions').select('amount').eq('type', 'commission'),
-        supabase.from('wallet_transactions').select('amount').eq('type', 'bidding_fee'),
+        supabase.from('platform_revenue').select('amount').eq('type', 'commission'),
+        supabase.from('platform_revenue').select('amount').eq('type', 'bidding_fee'),
         supabase.from('jobs').select('id,title,status,customer_name,worker_name,created_at,work_cost_total,inspection_charges,city,category').order('created_at', { ascending: false }).limit(8),
         supabase.from('users').select('id,name,email,city,created_at,approval_status').eq('role', 'worker').order('created_at', { ascending: false }).limit(5),
       ])

@@ -31,8 +31,8 @@ export default function AdminWallets() {
     const [{ data: w }, { data: e }, { data: comms }, { data: fees }] = await Promise.all([
       supabase.from('wallets').select('*').order('balance', { ascending: false }),
       supabase.from('escrow').select('*, jobs(title,customer_name,worker_name,status)').order('created_at', { ascending: false }),
-      supabase.from('wallet_transactions').select('amount').eq('type', 'commission'),
-      supabase.from('wallet_transactions').select('amount').eq('type', 'bidding_fee'),
+      supabase.from('platform_revenue').select('amount').eq('type', 'commission'),
+      supabase.from('platform_revenue').select('amount').eq('type', 'bidding_fee'),
     ])
     if (w && w.length > 0) {
       const ids = w.map((x: any) => x.user_id)

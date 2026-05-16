@@ -75,6 +75,16 @@ export default function JobDetail() {
 
   const acceptBid = async (bid: Bid) => {
     setAccepting(bid.id)
+    const { error } = await supabase.rpc('fn_lock_inspection_escrow', {
+      p_job_id: jobId,
+      p_customer_id: job!.customer_id,
+      p_amount: bid.inspection_charges,
+    })
+    if (error) {
+      setAccepting(null)
+      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up your wallet.')
+      return toast.error(error.message)
+    }
     await supabase.from('bids').update({ status: 'accepted' }).eq('id', bid.id)
     await supabase.from('bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bid.id)
     await supabase.from('jobs').update({
@@ -83,7 +93,7 @@ export default function JobDetail() {
       worker_name: bid.worker_name,
       inspection_charges: bid.inspection_charges,
     }).eq('id', jobId)
-    toast.success('Bid accepted! Job has started.')
+    toast.success('Bid accepted! Inspection fee locked in escrow.')
     nav(`/customer/active-job/${jobId}`)
   }
 

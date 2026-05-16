@@ -10,7 +10,7 @@ import { SERVICE_CATEGORIES } from '../../types'
 import LocationPicker from '../../components/LocationPicker'
 import LocationAutocomplete from '../../components/LocationAutocomplete'
 import toast from 'react-hot-toast'
-import { validateJobDescription, validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
+import { validateJobDescription, validateJobTitle, validateMediaItems, validateJobDate } from '../../lib/validation'
 
 interface MediaItem {
   file: File
@@ -168,7 +168,6 @@ export default function PostJob() {
     const err =
       validateJobTitle(title) ||
       validateJobDescription(description) ||
-      validateVoiceNote(voiceBlob, { required: true }) ||
       (!mediaItems.find(m => m.type === 'image') ? 'Please add a photo showing the problem' : null) ||
       validateJobDate(date)
     if (err) return toast.error(err)
@@ -180,7 +179,6 @@ export default function PostJob() {
     try {
       const ts = Date.now()
 
-      // Parallelize all media uploads (images are compressed first to reduce upload size/time)
       const mediaUploadTasks = mediaItems.map(async (item, i) => {
         const fileToUpload = item.type === 'image' ? await compressImage(item.file) : item.file
         const ext = item.type === 'video' ? 'mp4' : 'jpg'
@@ -193,12 +191,12 @@ export default function PostJob() {
         return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
       })
 
-      // Parallelize voice upload alongside media
       const voiceUploadTask = voiceBlob
         ? (async () => {
             const voiceFile = new File([voiceBlob], `voice_${ts}.webm`, { type: 'audio/webm' })
             const path = `voices/${user.id}_${ts}.webm`
-            await supabase.storage.from('job-images').upload(path, voiceFile)
+            const { error: vErr } = await supabase.storage.from('job-images').upload(path, voiceFile)
+            if (vErr) return ''
             return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
           })()
         : Promise.resolve('')
@@ -230,7 +228,7 @@ export default function PostJob() {
         customer_photo: user.profile_photo_url || null,
       })
 
-      if (error) return toast.error(error.message)
+      if (error) { toast.error(error.message); return }
       toast.success('Job posted!')
       nav('/customer/home')
     } finally {

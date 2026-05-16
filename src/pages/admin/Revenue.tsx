@@ -21,19 +21,20 @@ export default function AdminRevenue() {
   const fetchRevenue = useCallback(async () => {
     setLoading(true)
     const from = getFromDate()
-    let commQ = supabase.from('wallet_transactions').select('amount,created_at').eq('type','commission')
-    let feeQ = supabase.from('wallet_transactions').select('amount').eq('type','bidding_fee')
-    let jobQ = supabase.from('jobs').select('id,title,platform_fee,work_cost_total,inspection_charges,completed_at,customer_name,worker_name').eq('status','completed').not('platform_fee','is',null).order('platform_fee',{ascending:false}).limit(10)
-    if (from) { commQ=commQ.gte('created_at',from); feeQ=feeQ.gte('created_at',from); jobQ=jobQ.gte('completed_at',from) }
-    const [{ data:comms },{ data:fees },{ data:jobs }] = await Promise.all([commQ, feeQ, jobQ])
-    const commissions = comms?.reduce((s,r)=>s+r.amount,0)||0
-    const biddingFees = fees?.reduce((s,r)=>s+r.amount,0)||0
-    setStats({ commissions, biddingFees, total:commissions+biddingFees, jobsCompleted:jobs?.length||0 })
+    let commQ = supabase.from('platform_revenue').select('amount,created_at').eq('type', 'commission')
+    let feeQ = supabase.from('platform_revenue').select('amount,created_at').eq('type', 'bidding_fee')
+    let jobQ = supabase.from('jobs').select('id,title,platform_fee,work_cost_total,inspection_charges,completed_at,customer_name,worker_name').eq('status', 'completed').not('platform_fee', 'is', null).order('platform_fee', { ascending: false }).limit(10)
+    if (from) { commQ = commQ.gte('created_at', from); feeQ = feeQ.gte('created_at', from); jobQ = jobQ.gte('completed_at', from) }
+    const [{ data: comms }, { data: fees }, { data: jobs }] = await Promise.all([commQ, feeQ, jobQ])
+    const commissions = comms?.reduce((s, r) => s + r.amount, 0) || 0
+    const biddingFees = fees?.reduce((s, r) => s + r.amount, 0) || 0
+    setStats({ commissions, biddingFees, total: commissions + biddingFees, jobsCompleted: jobs?.length || 0 })
     if (jobs) setTopJobs(jobs)
-    const grouped: Record<string,number> = {}
-    comms?.forEach(r => { const d=r.created_at.split('T')[0]; grouped[d]=(grouped[d]||0)+r.amount })
-    const sorted = Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).slice(-14)
-    setDailyRevenue(sorted.map(([date,amount])=>({date,amount})))
+    const grouped: Record<string, number> = {}
+    comms?.forEach(r => { const d = r.created_at.split('T')[0]; grouped[d] = (grouped[d] || 0) + r.amount })
+    fees?.forEach(r => { const d = r.created_at.split('T')[0]; grouped[d] = (grouped[d] || 0) + r.amount })
+    const sorted = Object.entries(grouped).sort((a, b) => a[0].localeCompare(b[0])).slice(-14)
+    setDailyRevenue(sorted.map(([date, amount]) => ({ date, amount })))
     setLoading(false)
   }, [period, getFromDate])
 

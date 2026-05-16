@@ -1,10 +1,85 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IoArrowBack, IoWallet, IoWarning, IoTime, IoGift, IoCard, IoArrowDown } from 'react-icons/io5'
+import { IoArrowBack, IoWallet, IoWarning, IoTime, IoGift, IoCard, IoArrowDown, IoCash } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Wallet, WalletTransaction } from '../../types'
 import { BIDDING_FEE } from '../../types'
+import toast from 'react-hot-toast'
+
+function WithdrawSection({ balance, userId, onSuccess }: { balance: number; userId: string; onSuccess: () => void }) {
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState('JazzCash')
+  const [accountNumber, setAccountNumber] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+
+  const handleWithdraw = async () => {
+    const amt = parseInt(amount)
+    if (!amt || amt < 100) return toast.error('Minimum withdrawal is ₨100')
+    if (amt > balance) return toast.error('Amount exceeds available balance')
+    if (!accountNumber.trim()) return toast.error('Enter your account number')
+    setLoading(true)
+    const { error } = await supabase.from('wallets').update({ balance: balance - amt }).eq('user_id', userId)
+    if (error) { setLoading(false); return toast.error('Withdrawal failed') }
+    await supabase.from('wallet_transactions').insert({
+      user_id: userId, type: 'withdrawal', amount: amt, direction: 'debit',
+      description: `Withdrawal via ${method} to ${accountNumber}`,
+    })
+    setLoading(false); setShowForm(false); setAmount(''); setAccountNumber('')
+    toast.success(`₨${amt.toLocaleString()} withdrawal request submitted`)
+    onSuccess()
+  }
+
+  if (!showForm) return (
+    <button onClick={() => setShowForm(true)}
+      className="w-full flex items-center justify-between p-4 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+          <IoCash size={20} className="text-primary" />
+        </div>
+        <div className="text-left">
+          <p className="text-sm font-semibold text-primary">Withdraw Earnings</p>
+          <p className="text-xs text-text-muted">Available: ₨{balance.toLocaleString()}</p>
+        </div>
+      </div>
+      <span className="text-xs bg-primary text-white px-3 py-1.5 rounded-full font-medium">Withdraw</span>
+    </button>
+  )
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs font-medium text-text-muted mb-1 block">Amount (min ₨100)</label>
+        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount"
+          className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary" />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-text-muted mb-1 block">Method</label>
+        <select value={method} onChange={e => setMethod(e.target.value)}
+          className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary bg-white">
+          <option>JazzCash</option><option>EasyPaisa</option><option>Bank Transfer</option>
+        </select>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-text-muted mb-1 block">Account / Phone Number</label>
+        <input type="text" value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
+          placeholder="03XX-XXXXXXX or IBAN"
+          className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary" />
+      </div>
+      <div className="flex gap-2">
+        <button onClick={handleWithdraw} disabled={loading}
+          className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+          {loading ? 'Processing...' : 'Confirm Withdrawal'}
+        </button>
+        <button onClick={() => setShowForm(false)} className="px-4 py-3 border border-border rounded-xl text-sm text-text-secondary">
+          Cancel
+        </button>
+      </div>
+      <p className="text-xs text-text-muted text-center">Withdrawals processed within 24-48 hours</p>
+    </div>
+  )
+}
 
 export default function WorkerWallet() {
   const nav = useNavigate()
@@ -124,12 +199,21 @@ export default function WorkerWallet() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-5">
-          <p className="text-sm font-semibold text-text-primary mb-4">Add Money / Withdraw</p>
+          <p className="text-sm font-semibold text-text-primary mb-1">Withdraw Earnings</p>
+          <p className="text-xs text-text-muted mb-4">Transfer your balance to your payment account</p>
+          <WithdrawSection balance={balance} userId={user!.id} onSuccess={() => {
+            supabase.from('wallets').select('*').eq('user_id', user!.id).single().then(({ data }) => { if (data) setWallet(data as any) })
+            supabase.from('wallet_transactions').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(30).then(({ data }) => { if (data) setTransactions(data as any) })
+          }} />
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <p className="text-sm font-semibold text-text-primary mb-4">Top Up Methods</p>
           <div className="space-y-3">
             {[
-              { name: 'JazzCash', sub: 'Add or withdraw via JazzCash' },
-              { name: 'EasyPaisa', sub: 'Add or withdraw via EasyPaisa' },
-              { name: 'Bank Transfer', sub: 'Transfer to your bank account' },
+              { name: 'JazzCash', sub: 'Add money via JazzCash' },
+              { name: 'EasyPaisa', sub: 'Add money via EasyPaisa' },
+              { name: 'Bank Transfer', sub: 'Transfer from your bank account' },
             ].map(m => (
               <div key={m.name} className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed">
                 <div className="flex items-center gap-3">
