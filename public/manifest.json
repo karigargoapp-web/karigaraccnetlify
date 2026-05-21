@@ -3,20 +3,24 @@
   "short_name": "KarigarGo",
   "description": "Find skilled workers for home services in Pakistan",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f5f5",
+  "background_color": "#006600",
   "theme_color": "#006600",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "lang": "en",
   "icons": [
     {
-      "src": "/favicon.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "/favicon.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
