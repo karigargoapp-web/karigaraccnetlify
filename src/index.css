@@ -27,39 +27,22 @@ body {
 #root {
   min-height: 100dvh;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  background-color: #e8e8e8;
+  width: 100%;
+  background-color: #f5f5f5;
 }
 
 @media (max-width: 480px) {
   #root {
     background-color: #f5f5f5;
-    display: block;
   }
 }
 
-/* Mobile container - full width on real phones, max 430px on desktop */
+/* Desktop preview - shows as phone on big screens */
 .app-shell {
   width: 100%;
-  max-width: 430px;
-  min-height: 100dvh;
   min-height: 100vh;
   background-color: #f5f5f5;
   position: relative;
-  margin: 0 auto;
-}
-
-@media (max-width: 480px) {
-  .app-shell {
-    max-width: 100%;
-    width: 100vw;
-    box-shadow: none;
-  }
-
-  body {
-    background-color: #f5f5f5;
-  }
 }
 
 /* ===== Scrollbar ===== */
