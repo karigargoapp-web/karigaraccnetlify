@@ -46,8 +46,8 @@ export default function MyBids() {
     fetchData()
   }, [user])
 
-  const activeJobs = assignedJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled')
-  const completedJobs = assignedJobs.filter(j => j.status === 'completed')
+  const activeJobs = assignedJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected')
+  const completedJobs = assignedJobs.filter(j => j.status === 'completed' || j.status === 'workCostRejected')
 
   const statusBadge = (s: string) => {
     if (s === 'bidAccepted')

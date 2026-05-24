@@ -65,13 +65,13 @@ export default function MyJobs() {
   }
 
   const filtered = jobs.filter(j => {
-    if (tab === 'active') return j.status !== 'completed' && j.status !== 'cancelled'
+    if (tab === 'active') return j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected'
     if (tab === 'completed') return j.status === 'completed'
     return j.status === 'cancelled'
   })
 
   const totalBids = jobs.reduce((s, j) => s + (bids[j.id]?.length || 0), 0)
-  const activeCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length
+  const activeCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected').length
 
   const statusBadge = (s: string) => {
     if (s === 'pending') return <span className="pill-pending text-[10px] font-medium">Bidding</span>

@@ -55,8 +55,8 @@ export default function CustomerHome() {
     return () => cancelAnimationFrame(animationId)
   }, [])
 
-  const ongoing = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled')
-  const completed = jobs.filter(j => j.status === 'completed')
+  const ongoing = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected')
+  const completed = jobs.filter(j => j.status === 'completed' || j.status === 'workCostRejected')
 
   const statusLabel = (s: string) => {
     if (s === 'pending') return <span className="pill-pending">Bidding</span>

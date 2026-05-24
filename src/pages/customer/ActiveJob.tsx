@@ -61,6 +61,7 @@ export default function CustomerActiveJob() {
   const acceptWorkCost = async () => {
     if (!job) return
     if (!job.worker_id) return toast.error('No worker assigned')
+    if (!job.work_cost || job.work_cost <= 0) return toast.error('No work cost has been proposed yet')
     const { error } = await supabase.rpc('fn_lock_work_escrow', {
       p_job_id: jobId,
       p_customer_id: job.customer_id,
@@ -68,16 +69,16 @@ export default function CustomerActiveJob() {
       p_work_amount: job.work_cost || 0,
     })
     if (error) {
-      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance to accept this job')
-      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance')
+      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up your wallet.')
+      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20)')
       return toast.error(error.message)
     }
     await supabase.from('jobs').update({ status: 'inProgress' }).eq('id', jobId)
-    toast.success('Work cost accepted! Job is now in progress.')
+    toast.success('Work started! ₨20 job fee deducted from worker wallet.')
   }
   const declineWorkCost = async () => {
     await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
-    await supabase.from('jobs').update({ status: 'workCostRejected', work_cost: 0 }).eq('id', jobId)
+    await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString(), work_cost: 0 }).eq('id', jobId)
     toast('Work cost declined — only inspection fee applies.')
   }
   const markComplete = async () => {
@@ -226,7 +227,7 @@ export default function CustomerActiveJob() {
             <p className="text-xs text-blue-600 mt-1">Waiting for worker to propose work cost or you can end here.</p>
             <button onClick={async () => {
               await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
-              await supabase.from('jobs').update({ status: 'workCostRejected' }).eq('id', jobId)
+              await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId)
               toast('Job ended at inspection.')
               nav(`/customer/receipt/${jobId}`)
             }} className="mt-3 w-full py-2.5 border border-blue-300 text-blue-700 text-sm font-medium rounded-xl">End Job Here (Pay Inspection Only)</button>
