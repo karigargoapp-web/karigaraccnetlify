@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IoHome, IoBriefcase, IoChatbubbleEllipses, IoPerson, IoAdd, IoCall, IoChatbubble, IoNotifications } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
@@ -15,7 +15,6 @@ export default function CustomerHome() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('home')
-  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -30,30 +29,6 @@ export default function CustomerHome() {
     }
     fetch()
   }, [user])
-
-  // Auto-scroll categories with smooth infinite loop
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    
-    let animationId: number
-    let pos = 0
-    const speed = 0.5 // pixels per frame
-    
-    const animate = () => {
-      pos += speed
-      // Reset when we've scrolled through one set of duplicated items
-      const singleSetWidth = el.scrollWidth / 3
-      if (pos >= singleSetWidth) {
-        pos = 0
-      }
-      el.scrollLeft = pos
-      animationId = requestAnimationFrame(animate)
-    }
-    
-    animationId = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(animationId)
-  }, [])
 
   const ongoing = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected')
   const completed = jobs.filter(j => j.status === 'completed' || j.status === 'workCostRejected')
@@ -101,9 +76,9 @@ export default function CustomerHome() {
       <div className="flex-1 overflow-y-auto px-5 py-5 pb-24">
         {/* Service Categories — auto-scrolling */}
         <p className="section-title">{t('serviceCategories')}</p>
-        <div ref={scrollRef} className="flex gap-4 overflow-x-hidden pb-3 -mx-1 px-1">
-          {[...SERVICE_CATEGORIES, ...SERVICE_CATEGORIES, ...SERVICE_CATEGORIES].map((cat, idx) => (
-            <div key={`${cat.name}-${idx}`} className="flex flex-col items-center min-w-[64px]">
+        <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-hide">
+          {SERVICE_CATEGORIES.map((cat, idx) => (
+            <div key={idx} className="flex flex-col items-center min-w-[64px]">
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1.5 shadow-sm"
                 style={{ backgroundColor: cat.color + '20' }}
@@ -180,7 +155,7 @@ export default function CustomerHome() {
       </div>
 
       {/* Bottom nav */}
-      <div className="bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px]">
+      <div className="bottom-nav">
         <button className={tab === 'home' ? 'active' : ''} onClick={() => setTab('home')}>
           <IoHome size={22} /> {t('home')}
         </button>

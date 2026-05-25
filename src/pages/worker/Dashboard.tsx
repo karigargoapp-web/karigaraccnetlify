@@ -248,7 +248,7 @@ export default function WorkerDashboard() {
       </div>
 
       {/* Bottom nav */}
-      <div className="bottom-nav fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px]">
+      <div className="bottom-nav">
         <button className={tab === 'home' ? 'active' : ''} onClick={() => setTab('home')}>
           <IoHome size={22} /> Jobs
         </button>
