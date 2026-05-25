@@ -71,7 +71,7 @@ export default function WorkerActiveJob() {
   }, [jobId])
 
   /** Only while customer has accepted bid and worker is en route to inspection */
-  const liveTrackingPhase = job?.status === 'bidAccepted'
+  const liveTrackingPhase = job ? !['completed', 'cancelled', 'workCostRejected'].includes(job.status) : false
 
   // Live location → only during bidAccepted; stops automatically after inspection is marked done
   useEffect(() => {
@@ -142,15 +142,16 @@ export default function WorkerActiveJob() {
   const currentLabels = isRejected ? REJECTED_LABELS : STATE_LABELS
   const stateIndex = job ? (currentStates as any).indexOf(job.status) : -1
 
-  const markInspectionDone = async () => {
-    await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
-    toast.success('Inspection marked as done')
-  }
-
   const submitWorkCost = async () => {
     if (!workCost || Number(workCost) <= 0) return toast.error('Enter a valid cost')
     await supabase.from('jobs').update({ status: 'workCostProposed', work_cost: Number(workCost) }).eq('id', jobId)
-    toast.success('Work cost submitted')
+    await supabase.from('notifications').insert({
+      user_id: job!.customer_id,
+      type: 'system',
+      title: 'Work cost proposed',
+      body: `${job!.worker_name} proposed a work cost of ₨${workCost}. Please review.`,
+    })
+    toast.success('Work cost submitted — waiting for customer approval')
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-surface text-sm text-text-muted">Loading...</div>
@@ -358,13 +359,25 @@ export default function WorkerActiveJob() {
 
         {/* State-based actions */}
         {job.status === 'bidAccepted' && (
-          <button onClick={markInspectionDone} className="btn-primary">Mark Inspection Done</button>
+          <div className="card p-4 text-center">
+            <p className="text-sm font-semibold text-primary">🚗 Head to the job location</p>
+            <p className="text-xs text-text-muted mt-1">Customer will mark inspection complete once you arrive and inspect.</p>
+          </div>
         )}
 
         {job.status === 'inspectionDone' && (
+          <div className="card p-4 text-center">
+            <p className="text-sm font-semibold text-primary">✅ Inspection marked complete</p>
+            <p className="text-xs text-text-muted mt-1">Waiting for customer to decide whether to proceed with work.</p>
+          </div>
+        )}
+
+        {job.status === 'proceedRequested' && (
           <div className="card p-4 space-y-3">
-            <p className="text-sm font-semibold text-text-primary">Enter Work Cost</p>
-            <input type="number" placeholder="Enter cost in PKR" value={workCost} onChange={e => setWorkCost(e.target.value)} />
+            <p className="text-sm font-semibold text-green-700">✅ Customer wants to proceed!</p>
+            <p className="text-xs text-text-muted">Enter your total work cost below. Customer will review and accept before work starts.</p>
+            <input type="number" placeholder="Enter work cost in PKR" value={workCost} onChange={e => setWorkCost(e.target.value)}
+              className="w-full border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary" />
             <button onClick={submitWorkCost} className="btn-primary">Submit Work Cost</button>
           </div>
         )}
@@ -372,30 +385,32 @@ export default function WorkerActiveJob() {
         {job.status === 'workCostProposed' && (
           <div className="card p-4 text-center">
             <p className="text-sm text-warning font-medium">⏳ Awaiting customer approval...</p>
-            <p className="text-xs text-text-muted mt-1">Proposed: PKR {job.work_cost}</p>
+            <p className="text-xs text-text-muted mt-1">Proposed: ₨{job.work_cost}</p>
           </div>
         )}
 
         {job.status === 'workCostAccepted' && (
           <div className="card p-4 text-center">
-            <p className="text-sm text-primary font-medium">✅ Cost approved: PKR {job.work_cost}</p>
+            <p className="text-sm text-primary font-medium">✅ Cost approved: ₨{job.work_cost}</p>
             <p className="text-xs text-text-muted mt-1">Complete the work. Customer will mark job as done.</p>
+          </div>
+        )}
+
+        {job.status === 'inProgress' && (
+          <div className="card p-4 text-center">
+            <p className="text-sm text-primary font-medium">🔧 Work in progress</p>
+            <p className="text-xs text-text-muted mt-1">Complete the work. Customer will confirm when done.</p>
           </div>
         )}
 
         {job.status === 'workCostRejected' && (
           <div className="card p-4 text-center">
-            <p className="text-sm text-red-600 font-medium">Cost rejected. You will receive inspection fee only: PKR {job.inspection_charges}.</p>
-            <p className="text-xs text-text-muted mt-1">Wait for customer to complete the job.</p>
+            <p className="text-sm text-red-600 font-medium">Cost declined. You will receive inspection fee: ₨{job.inspection_charges}.</p>
           </div>
         )}
 
-        {/* Rate Customer — shown after job completes */}
         {job.status === 'completed' && (
-          <button
-            onClick={() => nav(`/worker/review-customer/${job.id}`)}
-            className="btn-primary"
-          >
+          <button onClick={() => nav(`/worker/review-customer/${job.id}`)} className="btn-primary">
             ⭐ Rate the Customer
           </button>
         )}

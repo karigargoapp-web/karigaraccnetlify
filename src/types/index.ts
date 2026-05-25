@@ -45,6 +45,7 @@ export type JobStatus =
   | 'pending'
   | 'bidAccepted'
   | 'inspectionDone'
+  | 'proceedRequested'
   | 'workCostProposed'
   | 'workCostAccepted'
   | 'workCostRejected'
