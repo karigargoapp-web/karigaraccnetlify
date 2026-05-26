@@ -109,7 +109,7 @@ function ProfileCompletionRoute() {
 
 function AppShell() {
   return (
-    <div className="w-full min-h-screen bg-[#f5f5f5]">
+    <div className="app-shell">
       <Outlet />
     </div>
   )
