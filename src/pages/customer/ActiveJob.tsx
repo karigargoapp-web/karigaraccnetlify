@@ -16,6 +16,7 @@ export default function CustomerActiveJob() {
   const { user } = useAuth()
   const [job, setJob] = useState<Job | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -39,7 +40,6 @@ export default function CustomerActiveJob() {
   const inspectionFee = job?.inspection_charges || 0
   const workCost = job?.work_cost || 0
   const total = inspectionFee + workCost
-  const platformFee = Math.round(total * 0.1)
 
   const markInspectionComplete = async () => {
     await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
@@ -80,7 +80,7 @@ export default function CustomerActiveJob() {
       return toast.error(error.message)
     }
     await supabase.from('jobs').update({ status: 'inProgress' }).eq('id', jobId)
-    toast.success('Work started! ₨20 job fee deducted from worker wallet.')
+    toast.success('Work cost accepted! Job is now in progress.')
   }
 
   const declineWorkCost = async () => {
@@ -91,8 +91,10 @@ export default function CustomerActiveJob() {
   }
 
   const markComplete = async () => {
+    if (confirming) return
+    setConfirming(true)
     const { error } = await supabase.rpc('fn_complete_job', { p_job_id: jobId })
-    if (error) return toast.error(error.message)
+    if (error) { setConfirming(false); return toast.error(error.message) }
     setShowConfirm(false)
     toast.success('Job completed!')
     nav(`/customer/review/${jobId}`)
@@ -259,24 +261,33 @@ export default function CustomerActiveJob() {
         )}
       </div>
 
-      {/* Confirm completion modal */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false) }}>
           <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-6 animate-slide-up">
-            <h3 className="text-lg font-semibold text-text-primary mb-1">Confirm Completion</h3>
-            <p className="text-sm text-text-secondary mb-4">Review the payment breakdown</p>
+            <h3 className="text-lg font-semibold text-text-primary mb-1">Confirm Job Complete</h3>
+            <p className="text-sm text-text-secondary mb-4">You are about to confirm this job is done.</p>
             <div className="space-y-2 mb-5">
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Inspection Fee</span><span className="font-medium">₨{inspectionFee}</span></div>
-              {workCost > 0 && <div className="flex justify-between text-sm"><span className="text-text-secondary">Work Cost</span><span className="font-medium">₨{workCost}</span></div>}
-              <div className="flex justify-between text-sm font-semibold border-t border-border pt-3">
-                <span>Total</span><span className="text-primary text-base">₨{total}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Inspection Fee</span>
+                <span className="font-medium">₨{inspectionFee}</span>
               </div>
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Platform (10%)</span><span className="font-medium text-red-500">- ₨{platformFee}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-text-secondary">Worker Receives</span><span className="font-medium text-green-600">₨{total - platformFee}</span></div>
+              {workCost > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-secondary">Work Cost</span>
+                  <span className="font-medium">₨{workCost}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-semibold border-t border-border pt-3">
+                <span>Total Paid</span>
+                <span className="text-primary text-base">₨{total}</span>
+              </div>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowConfirm(false)} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={markComplete} className="btn-primary flex-1">Confirm</button>
+              <button onClick={markComplete} disabled={confirming}
+                className="btn-primary flex-1 disabled:opacity-60">
+                {confirming ? 'Processing...' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
