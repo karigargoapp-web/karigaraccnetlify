@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KarigarGo</string>
+    <string name="title_activity_main">KarigarGo</string>
+    <string name="package_name">com.karigargo.app</string>
+    <string name="custom_url_scheme">com.karigargo.app</string>
+</resources>
