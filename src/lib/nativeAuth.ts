@@ -10,44 +10,51 @@ export function setupNativeAuthListener() {
   if (!Capacitor.isNativePlatform()) return
 
   App.addListener('appUrlOpen', async ({ url }: { url: string }) => {
+    toast('🔗 Deep link received', { duration: 4000 })
     await Browser.close()
-    if (!url) return
+
+    if (!url) {
+      toast.error('❌ No URL in deep link')
+      return
+    }
+
+    toast(`📦 URL: ${url.substring(0, 60)}`, { duration: 6000 })
 
     try {
-      // Hash fragment: implicit tokens
-      // karigargo://login#access_token=xxx&refresh_token=yyy
       const hashPart = url.includes('#') ? url.split('#')[1] : ''
+      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
+
       if (hashPart) {
         const params = new URLSearchParams(hashPart)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
+          toast('🔑 Setting session from hash tokens...', { duration: 3000 })
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) toast.error('Login failed: ' + error.message)
+          if (error) toast.error('❌ setSession: ' + error.message)
+          else toast.success('✅ Session set!')
           return
         }
       }
 
-      // Query string: PKCE code
-      // karigargo://login?code=xxx
-      // exchangeCodeForSession takes just the CODE string, not a URL
-      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
       if (queryPart) {
         const params = new URLSearchParams(queryPart)
         const code = params.get('code')
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) toast.error('Login failed: ' + error.message)
+          toast(`🔄 Exchanging PKCE code...`, { duration: 3000 })
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) toast.error('❌ exchangeCode: ' + error.message)
+          else toast.success('✅ Code exchanged! User: ' + data?.user?.email)
           return
         }
       }
 
-      toast.error('Login failed: no tokens in callback URL')
+      toast.error('❌ No tokens or code found in URL')
     } catch (e: any) {
-      toast.error('Login error: ' + (e?.message || 'Unknown'))
+      toast.error('❌ Error: ' + (e?.message || 'Unknown'))
     }
   })
 }
