@@ -14,44 +14,38 @@ export function setupNativeAuthListener() {
     if (!url) return
 
     try {
-      // Supabase redirects back as:
-      // karigargo://login#access_token=...  (if implicit)
-      // karigargo://login?code=...          (if PKCE)
-
-      // Check hash fragment first (tokens direct)
+      // Hash fragment: implicit tokens
+      // karigargo://login#access_token=xxx&refresh_token=yyy
       const hashPart = url.includes('#') ? url.split('#')[1] : ''
       if (hashPart) {
         const params = new URLSearchParams(hashPart)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
           if (error) toast.error('Login failed: ' + error.message)
           return
         }
       }
 
-      // Check query string for PKCE code
+      // Query string: PKCE code
+      // karigargo://login?code=xxx
+      // exchangeCodeForSession takes just the CODE string, not a URL
       const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
       if (queryPart) {
         const params = new URLSearchParams(queryPart)
         const code = params.get('code')
         if (code) {
-          // Pass the full URL converted to https so Supabase can parse it
-          const fullUrl = url.replace('karigargo://login', 'https://epekjmfmbgwfonjyhklm.supabase.co/auth/v1/callback')
-          const { error } = await supabase.auth.exchangeCodeForSession(fullUrl)
-          if (error) {
-            // Fallback: try with just the normalised URL
-            const { error: err2 } = await supabase.auth.exchangeCodeForSession(
-              url.replace('karigargo://', 'https://karigargo.app/')
-            )
-            if (err2) toast.error('Login failed: ' + err2.message)
-          }
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) toast.error('Login failed: ' + error.message)
           return
         }
       }
 
-      toast.error('Login failed: no tokens received')
+      toast.error('Login failed: no tokens in callback URL')
     } catch (e: any) {
       toast.error('Login error: ' + (e?.message || 'Unknown'))
     }
