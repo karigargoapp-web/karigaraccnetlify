@@ -82,6 +82,8 @@ export default function WorkerLogin() {
     try {
       if (isNativeApp()) {
         await signInWithGoogleNative('worker')
+        // Browser is now open — reset loading so user isn't stuck if they cancel
+        setGoogleLoading(false)
       } else {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
@@ -94,25 +96,6 @@ export default function WorkerLogin() {
       toast.error(err.message || 'Google sign-in failed')
       setGoogleLoading(false)
     }
-  }
-
-  if (googleLoading) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className="bg-primary px-6 pt-12 pb-8 rounded-b-3xl text-center">
-          <div className="w-16 h-16 mx-auto mb-2 rounded-2xl bg-white/20 animate-pulse" />
-          <div className="h-3 w-48 mx-auto bg-white/20 rounded animate-pulse mt-2" />
-          <div className="flex gap-3 mt-6">
-            <div className="flex-1 bg-white/10 rounded-2xl py-3.5 px-3 h-14 animate-pulse" />
-            <div className="flex-1 bg-white/10 rounded-2xl py-3.5 px-3 h-14 animate-pulse" />
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-text-secondary">Connecting to Google...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
