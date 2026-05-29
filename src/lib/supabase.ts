@@ -9,22 +9,18 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | unde
 
 const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
 
-// On native APK: use localStorage (persists across app backgrounding)
-// On web: use sessionStorage (per-tab, prevents cross-tab auth conflicts)
-const authStorage = typeof window !== 'undefined'
-  ? (isNative ? window.localStorage : window.sessionStorage)
-  : undefined
-
 export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
-      storage: authStorage,
-      detectSessionInUrl: !isNative, // APK handles URL manually via appUrlOpen
-      // On native: use implicit flow — tokens come back in hash fragment, no PKCE verifier needed
-      // On web: use pkce for security
-      flowType: isNative ? 'implicit' : 'pkce',
+      // Always use localStorage — survives APK backgrounding and browser context switches
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      // On native: we handle URL manually via appUrlOpen, don't let Supabase touch the URL
+      detectSessionInUrl: !isNative,
+      // PKCE on both — localStorage ensures verifier survives the external browser round-trip
+      flowType: 'pkce',
+      persistSession: true,
     },
   }
 )

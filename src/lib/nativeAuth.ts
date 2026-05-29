@@ -14,29 +14,25 @@ export function setupNativeAuthListener() {
     if (!url) return
 
     try {
-      // Implicit flow: tokens come in hash fragment
-      // karigargo://login#access_token=xxx&refresh_token=yyy&token_type=bearer
-      const hash = url.includes('#') ? url.split('#')[1] : ''
+      const normalised = url.replace('karigargo://', 'https://karigargo.app/')
 
+      // Implicit flow: tokens in hash fragment
+      const hash = url.includes('#') ? url.split('#')[1] : ''
       if (hash) {
         const params = new URLSearchParams(hash)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
-
         if (accessToken && refreshToken) {
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) {
-            toast.error('Sign-in failed: ' + error.message)
-          }
+          if (error) toast.error('Sign-in failed: ' + error.message)
           return
         }
       }
 
-      // Fallback: PKCE code in query params (shouldn't happen with implicit flow)
-      const normalised = url.replace('karigargo://', 'https://karigargo.app/')
+      // PKCE flow: code in query string — verifier was saved to localStorage
       const parsed = new URL(normalised)
       const code = parsed.searchParams.get('code')
       if (code) {
@@ -45,7 +41,7 @@ export function setupNativeAuthListener() {
       }
 
     } catch (e: any) {
-      toast.error('Sign-in error: ' + (e?.message || 'Unknown error'))
+      toast.error('Sign-in error: ' + (e?.message || 'Unknown'))
     }
   })
 }
