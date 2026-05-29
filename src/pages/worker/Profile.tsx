@@ -257,7 +257,7 @@ export default function WorkerProfilePage() {
 
         {/* Logout */}
         <button
-          onClick={async () => { await signOut(); nav('/login') }}
+          onClick={async () => { await signOut() }}
           className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-500 py-4 rounded-2xl text-sm font-medium shadow-sm"
         >
           <IoLogOut size={18} /> Logout

@@ -42,7 +42,7 @@ export default function ResetPassword() {
     setLoading(false)
     if (error) return toast.error(error.message)
     setDone(true)
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'global' })
   }
 
   if (!validSession) {
