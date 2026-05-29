@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IoLogoGoogle, IoMail, IoLockClosed, IoLanguage, IoEyeOutline, IoEyeOffOutline } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
-import { emailRedirect } from '../../lib/authRedirect'
+import { emailRedirect, isNativeApp } from '../../lib/authRedirect'
+import { signInWithGoogleNative } from '../../lib/nativeAuth'
 import { assertEmailConfirmed } from '../../lib/authRole'
 import { validateEmail } from '../../lib/validation'
 import { useI18n } from '../../lib/i18n'
 import toast from 'react-hot-toast'
-
 type AuthTab = 'login' | 'signup'
 
 export default function WorkerLogin() {
@@ -79,11 +79,21 @@ export default function WorkerLogin() {
     setGoogleLoading(true)
     localStorage.setItem('oauth-intended-role', 'worker')
     sessionStorage.setItem('auth-intended-portal', 'worker')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: emailRedirect('/worker/dashboard') },
-    })
-    if (error) { sessionStorage.removeItem('auth-intended-portal'); toast.error(error.message); setGoogleLoading(false) }
+    try {
+      if (isNativeApp()) {
+        await signInWithGoogleNative('worker')
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: emailRedirect('/worker/dashboard') },
+        })
+        if (error) throw error
+      }
+    } catch (err: any) {
+      sessionStorage.removeItem('auth-intended-portal')
+      toast.error(err.message || 'Google sign-in failed')
+      setGoogleLoading(false)
+    }
   }
 
   if (googleLoading) {

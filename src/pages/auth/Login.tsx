@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IoLogoGoogle, IoMail, IoLockClosed, IoLanguage, IoEyeOutline, IoEyeOffOutline } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
-import { emailRedirect } from '../../lib/authRedirect'
+import { emailRedirect, isNativeApp } from '../../lib/authRedirect'
+import { signInWithGoogleNative } from '../../lib/nativeAuth'
 import { assertEmailConfirmed } from '../../lib/authRole'
 import { validateEmail } from '../../lib/validation'
 import { useI18n } from '../../lib/i18n'
@@ -78,11 +79,22 @@ export default function Login() {
   const handleGoogle = async () => {
     setGoogleLoading(true)
     sessionStorage.setItem('auth-intended-portal', 'customer')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: emailRedirect('/customer/home') },
-    })
-    if (error) { sessionStorage.removeItem('auth-intended-portal'); toast.error(error.message); setGoogleLoading(false) }
+    try {
+      if (isNativeApp()) {
+        await signInWithGoogleNative('customer')
+        // Browser opened — loading state stays until deep link callback fires
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: emailRedirect('/customer/home') },
+        })
+        if (error) throw error
+      }
+    } catch (err: any) {
+      sessionStorage.removeItem('auth-intended-portal')
+      toast.error(err.message || 'Google sign-in failed')
+      setGoogleLoading(false)
+    }
   }
 
   if (googleLoading) {

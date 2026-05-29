@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { Capacitor } from '@capacitor/core'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -21,16 +22,21 @@ if (import.meta.env.DEV && missing) {
   )
 }
 
-const sessionStorageOverride = typeof window !== 'undefined' ? window.sessionStorage : undefined
+// On native APK: use localStorage so session survives app backgrounding + external browser callbacks.
+// On web: use sessionStorage (per-tab) to prevent cross-tab auth conflicts.
+const isNative = typeof window !== 'undefined' && Capacitor.isNativePlatform()
+const authStorage = typeof window !== 'undefined'
+  ? (isNative ? window.localStorage : window.sessionStorage)
+  : undefined
 
 export const supabase = createClient(
   supabaseUrl || 'https://placeholder.invalid',
   supabaseAnonKey || 'invalid-placeholder-key',
   {
     auth: {
-      // Use sessionStorage (per-tab) instead of localStorage (cross-tab)
-      // This prevents auth conflicts when user has multiple browser profiles open
-      storage: sessionStorageOverride,
+      storage: authStorage,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
     },
   }
 )

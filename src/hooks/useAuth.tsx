@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
+import { setupNativeAuthListener } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -140,6 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    // Set up deep-link listener for APK (Google OAuth + email confirmation callbacks)
+    setupNativeAuthListener()
+
     // onAuthStateChange fires INITIAL_SESSION on mount (Supabase v2), which covers
     // both normal load and OAuth callback (hash token). We await fetchUserProfile
     // before clearing loading so no route guard ever sees loading=false with user=null.
