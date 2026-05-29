@@ -3,7 +3,6 @@ import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 import { supabase } from './supabase'
 
-// Simple scheme that Android supports (no dots in scheme)
 export const NATIVE_REDIRECT = 'karigargo://login'
 
 export function setupNativeAuthListener() {
@@ -11,38 +10,41 @@ export function setupNativeAuthListener() {
 
   App.addListener('appUrlOpen', async ({ url }: { url: string }) => {
     await Browser.close()
-
     if (!url) return
 
-    // Parse the deep link URL
-    // karigargo://login?code=xxx  (PKCE)
-    // karigargo://login#access_token=xxx  (implicit fallback)
     try {
-      const parsed = new URL(url.replace('karigargo://', 'https://karigargo.app/'))
+      // Convert custom scheme to https so URL() can parse it
+      // karigargo://login?code=xxx  → https://karigargo.app/login?code=xxx
+      const normalised = url.replace('karigargo://', 'https://karigargo.app/')
+      const parsed = new URL(normalised)
       const code = parsed.searchParams.get('code')
 
       if (code) {
-        // PKCE flow — exchange code for session
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) console.error('PKCE exchange error:', error)
+        // PKCE: pass the FULL normalised URL so Supabase can find the
+        // code_verifier it stored in localStorage during signInWithOAuth
+        const { error } = await supabase.auth.exchangeCodeForSession(normalised)
+        if (error) {
+          console.error('[KarigarGo] PKCE exchange error:', error.message)
+        }
         return
       }
 
-      // Implicit flow — hash fragment
+      // Implicit / hash flow fallback
       const hash = url.includes('#') ? url.split('#')[1] : ''
       if (hash) {
         const params = new URLSearchParams(hash)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
-          await supabase.auth.setSession({
+          const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
+          if (error) console.error('[KarigarGo] setSession error:', error.message)
         }
       }
     } catch (e) {
-      console.error('Deep link parse error:', e)
+      console.error('[KarigarGo] Deep link parse error:', e)
     }
   })
 }
