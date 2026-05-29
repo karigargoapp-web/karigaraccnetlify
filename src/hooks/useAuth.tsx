@@ -1,4 +1,5 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
 import { setupNativeAuthListener } from '../lib/nativeAuth'
@@ -15,6 +16,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const isNative = Capacitor.isNativePlatform()
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -35,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supaUser.app_metadata?.provider === 'google' ||
         supaUser.identities?.some(i => i.provider === 'google')
 
-      // Extract Google photo early — needed for both new and existing users
       const googleIdentity = supaUser.identities?.find(i => i.provider === 'google')
       const photo =
         supaUser.user_metadata?.avatar_url ||
@@ -50,30 +52,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supaUser.email?.split('@')[0] ||
         'User'
 
-      const { data } = await supabase
+      const { data, error: fetchErr } = await supabase
         .from('users')
         .select('*')
         .eq('id', supaUser.id)
         .maybeSingle()
 
+      if (fetchErr) throw fetchErr
+
       if (data) {
-        // Enforce portal role for BOTH email/password and Google OAuth.
-        // The login pages set 'auth-intended-portal' in sessionStorage before any sign-in.
-        // Checking it here (inside fetchUserProfile) is race-condition-free because
-        // the role check and setUser happen sequentially in the same async call.
-        const intendedPortal = sessionStorage.getItem('auth-intended-portal')
-        if (intendedPortal) {
-          sessionStorage.removeItem('auth-intended-portal')
-          if (data.role !== intendedPortal && data.role !== 'admin') {
-            await supabase.auth.signOut({ scope: 'local' })
-            const correctPage = data.role === 'worker' ? 'worker login' : 'customer login'
-            sessionStorage.setItem(
-              'auth-portal-error',
-              `This account is registered as a ${data.role}. Please sign in on the ${correctPage} page.`,
-            )
-            // Force a full-page redirect so the login component remounts and shows the error toast
-            window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
-            return
+        // Portal enforcement — sessionStorage is wiped on APK resume so skip on native
+        if (!isNative) {
+          const intendedPortal = sessionStorage.getItem('auth-intended-portal')
+          if (intendedPortal) {
+            sessionStorage.removeItem('auth-intended-portal')
+            if (data.role !== intendedPortal && data.role !== 'admin') {
+              await supabase.auth.signOut({ scope: 'local' })
+              const correctPage = data.role === 'worker' ? 'worker login' : 'customer login'
+              sessionStorage.setItem(
+                'auth-portal-error',
+                `This account is registered as a ${data.role}. Please sign in on the ${correctPage} page.`,
+              )
+              window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
+              return
+            }
           }
         }
 
@@ -82,7 +84,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           updates.verified = true
           data.verified = true
         }
-        // Backfill photo if row exists but photo was never saved
         if (!data.profile_photo_url && photo) {
           updates.profile_photo_url = photo
           data.profile_photo_url = photo
@@ -101,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // New Google user — create profile
       if (!isGoogleUser) return
       const intendedRole = localStorage.getItem('oauth-intended-role')
       localStorage.removeItem('oauth-intended-role')
@@ -117,7 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p_verified: true,
       })
 
-      if (!rpcErr && role === 'worker') {
+      if (rpcErr) throw rpcErr
+
+      if (role === 'worker') {
         await supabase.rpc('handle_signup_worker_profile', {
           p_user_id: supaUser.id,
           p_skills: [],
@@ -129,36 +133,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
       }
 
-      const { data: newData } = await supabase
+      const { data: newData, error: newFetchErr } = await supabase
         .from('users')
         .select('*')
         .eq('id', supaUser.id)
         .maybeSingle()
+
+      if (newFetchErr) throw newFetchErr
       if (newData) setUser(newData as AppUser)
-    } catch {
-      console.error('[KarigarGo] Failed to fetch/create user profile')
+
+    } catch (err) {
+      console.error('[KarigarGo] fetchUserProfile error:', err)
+      // Don't leave user stuck on loading — let them retry
+      setUser(null)
     }
   }
 
   useEffect(() => {
-    // Set up deep-link listener for APK (Google OAuth + email confirmation callbacks)
     setupNativeAuthListener()
 
-    // onAuthStateChange fires INITIAL_SESSION on mount (Supabase v2), which covers
-    // both normal load and OAuth callback (hash token). We await fetchUserProfile
-    // before clearing loading so no route guard ever sees loading=false with user=null.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // TOKEN_REFRESHED  — silent JWT rotation, no profile change needed
-      // PASSWORD_RECOVERY — recovery session; user hasn't logged in yet, don't fetch
-      // USER_UPDATED      — fired by updateUser(); acquires the auth lock itself,
-      //                     running fetchUserProfile concurrently causes lock-steal errors
       if (
         event === 'TOKEN_REFRESHED' ||
         event === 'PASSWORD_RECOVERY' ||
         event === 'USER_UPDATED'
       ) return
+
+      // On native APK: INITIAL_SESSION fires immediately with null (no session yet).
+      // If we're expecting a deep-link callback (OAuth), don't clear loading yet —
+      // wait for SIGNED_IN event which fires after exchangeCodeForSession completes.
+      if (isNative && event === 'INITIAL_SESSION' && !session) {
+        // Give the deep link handler 5 seconds to fire before giving up
+        setTimeout(() => setLoading(false), 5000)
+        return
+      }
 
       setSession(session)
       if (session?.user) {
