@@ -14,13 +14,11 @@ export const supabase = createClient(
   supabaseAnonKey,
   {
     auth: {
-      // Always use localStorage — survives APK backgrounding and browser context switches
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      // On native: we handle URL manually via appUrlOpen, don't let Supabase touch the URL
       detectSessionInUrl: !isNative,
-      // PKCE on both — localStorage ensures verifier survives the external browser round-trip
       flowType: 'pkce',
       persistSession: true,
+      autoRefreshToken: true,
     },
   }
 )
