@@ -1,5 +1,4 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
-import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
 import { setupNativeAuthListener } from '../lib/nativeAuth'
@@ -16,7 +15,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-const isNative = Capacitor.isNativePlatform()
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -51,17 +49,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchErr) throw fetchErr
 
       if (data) {
-        if (!isNative) {
-          const intendedPortal = sessionStorage.getItem('auth-intended-portal')
-          if (intendedPortal) {
-            sessionStorage.removeItem('auth-intended-portal')
-            if (data.role !== intendedPortal && data.role !== 'admin') {
-              await supabase.auth.signOut({ scope: 'local' })
-              sessionStorage.setItem('auth-portal-error',
-                `This account is registered as a ${data.role}. Please sign in on the ${data.role === 'worker' ? 'worker' : 'customer'} login page.`)
-              window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
-              return
-            }
+        const intendedPortal = sessionStorage.getItem('auth-intended-portal')
+        if (intendedPortal) {
+          sessionStorage.removeItem('auth-intended-portal')
+          if (data.role !== intendedPortal && data.role !== 'admin') {
+            await supabase.auth.signOut({ scope: 'local' })
+            sessionStorage.setItem('auth-portal-error',
+              `This account is registered as a ${data.role}. Please sign in on the ${data.role === 'worker' ? 'worker' : 'customer'} login page.`)
+            window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
+            return
           }
         }
         const updates: Record<string, unknown> = {}
