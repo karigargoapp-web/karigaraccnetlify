@@ -16,7 +16,9 @@ export const supabase = createClient(
     auth: {
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       detectSessionInUrl: !isNative,
-      flowType: 'pkce',
+      // On native: use implicit flow so Google returns tokens directly in hash
+      // No code_verifier needed — no storage loss issue
+      flowType: isNative ? 'implicit' : 'pkce',
       persistSession: true,
       autoRefreshToken: true,
     },

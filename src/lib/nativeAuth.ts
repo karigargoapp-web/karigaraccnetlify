@@ -10,51 +10,39 @@ export function setupNativeAuthListener() {
   if (!Capacitor.isNativePlatform()) return
 
   App.addListener('appUrlOpen', async ({ url }: { url: string }) => {
-    toast('🔗 Deep link received', { duration: 4000 })
     await Browser.close()
-
-    if (!url) {
-      toast.error('❌ No URL in deep link')
-      return
-    }
-
-    toast(`📦 URL: ${url.substring(0, 60)}`, { duration: 6000 })
+    if (!url) return
 
     try {
+      // Implicit flow: tokens come in hash fragment
+      // karigargo://login#access_token=xxx&refresh_token=yyy
       const hashPart = url.includes('#') ? url.split('#')[1] : ''
-      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
-
       if (hashPart) {
         const params = new URLSearchParams(hashPart)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
-          toast('🔑 Setting session from hash tokens...', { duration: 3000 })
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) toast.error('❌ setSession: ' + error.message)
-          else toast.success('✅ Session set!')
+          if (error) toast.error('Sign-in failed: ' + error.message)
           return
         }
       }
 
+      // Fallback: PKCE code (should not happen with implicit flow)
+      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
       if (queryPart) {
         const params = new URLSearchParams(queryPart)
         const code = params.get('code')
         if (code) {
-          toast(`🔄 Exchanging PKCE code...`, { duration: 3000 })
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) toast.error('❌ exchangeCode: ' + error.message)
-          else toast.success('✅ Code exchanged! User: ' + data?.user?.email)
-          return
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) toast.error('Sign-in failed: ' + error.message)
         }
       }
-
-      toast.error('❌ No tokens or code found in URL')
     } catch (e: any) {
-      toast.error('❌ Error: ' + (e?.message || 'Unknown'))
+      toast.error('Sign-in error: ' + (e?.message || 'Unknown'))
     }
   })
 }

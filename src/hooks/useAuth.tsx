@@ -161,12 +161,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         event === 'USER_UPDATED'
       ) return
 
-      // On native APK: INITIAL_SESSION fires immediately with null (no session yet).
-      // If we're expecting a deep-link callback (OAuth), don't clear loading yet —
-      // wait for SIGNED_IN event which fires after exchangeCodeForSession completes.
+      // On native APK: INITIAL_SESSION with null session could mean:
+      // 1. User is not logged in (normal)
+      // 2. App resumed after OAuth browser — SIGNED_IN will fire shortly
+      // Check if we have a stored session in localStorage to distinguish
       if (isNative && event === 'INITIAL_SESSION' && !session) {
-        // Give the deep link handler 5 seconds to fire before giving up
-        setTimeout(() => setLoading(false), 5000)
+        const stored = localStorage.getItem('supabase.auth.token')
+        if (!stored) {
+          // No stored session — user is genuinely not logged in
+          setUser(null)
+          setLoading(false)
+        }
+        // If stored session exists, SIGNED_IN/TOKEN_REFRESHED will fire and handle it
         return
       }
 
