@@ -1,8 +1,8 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
-import { setupNativeAuthListener } from '../lib/nativeAuth'
+import { setupNativeAuthListener, registerSessionReadyCallback } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const loadingRef = useRef(true)
 
   const fetchUserProfile = async (supaUser: SupaUser) => {
     try {
@@ -102,22 +103,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const handleSessionReady = async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (currentSession?.user) {
+        setSession(currentSession)
+        await fetchUserProfile(currentSession.user)
+      }
+    } catch {}
+    setLoading(false)
+    loadingRef.current = false
+  }
+
   useEffect(() => {
     setupNativeAuthListener()
 
-    // Also check for manually stored pending session (fallback)
-    if (isNative) {
-      const pending = localStorage.getItem('karigargo-pending-session')
-      if (pending) {
-        localStorage.removeItem('karigargo-pending-session')
-        try {
-          const { access_token, refresh_token } = JSON.parse(pending)
-          if (access_token && refresh_token) {
-            supabase.auth.setSession({ access_token, refresh_token })
-          }
-        } catch {}
-      }
-    }
+    // Register callback — called by nativeAuth after setSession() completes
+    // This is the ONLY reliable way to notify React after Capacitor deep link
+    registerSessionReadyCallback(handleSessionReady)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
@@ -128,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
       }
       setLoading(false)
+      loadingRef.current = false
     })
 
     return () => subscription.unsubscribe()

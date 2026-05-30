@@ -6,6 +6,12 @@ import toast from 'react-hot-toast'
 
 export const NATIVE_REDIRECT = 'karigargo://login'
 
+// Global ref to force auth re-check from useAuth
+let _onSessionReady: (() => void) | null = null
+export function registerSessionReadyCallback(fn: () => void) {
+  _onSessionReady = fn
+}
+
 export function setupNativeAuthListener() {
   if (!Capacitor.isNativePlatform()) return
 
@@ -21,7 +27,6 @@ export function setupNativeAuthListener() {
         const refreshToken = params.get('refresh_token')
 
         if (accessToken && refreshToken) {
-          // Set session — this writes to localStorage synchronously via Supabase
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -30,16 +35,8 @@ export function setupNativeAuthListener() {
             toast.error('Sign-in failed: ' + error.message)
             return
           }
-          // Verify it was written to localStorage
-          const stored = localStorage.getItem('supabase.auth.token')
-          if (stored) {
-            // Hard restart — fresh WebView will read session from localStorage on mount
-            window.location.href = window.location.origin
-          } else {
-            // Fallback: store manually and restart
-            localStorage.setItem('karigargo-pending-session', JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }))
-            window.location.href = window.location.origin
-          }
+          // Notify useAuth to re-check session immediately
+          if (_onSessionReady) _onSessionReady()
           return
         }
       }
@@ -51,7 +48,7 @@ export function setupNativeAuthListener() {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) { toast.error('Sign-in failed: ' + error.message); return }
-          window.location.href = window.location.origin
+          if (_onSessionReady) _onSessionReady()
         }
       }
     } catch (e: any) {
