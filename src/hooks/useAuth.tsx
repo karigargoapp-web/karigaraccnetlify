@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
-import { setupNativeAuthListener, registerSessionReadyCallback } from '../lib/nativeAuth'
+import { setupNativeAuthListener } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -97,28 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newData) setUser(newData as AppUser)
 
     } catch (err) {
-      console.error('[KarigarGo] fetchUserProfile error:', err)
       setUser(null)
     }
   }
 
-  const handleSessionReady = async () => {
-    try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      if (currentSession?.user) {
-        setSession(currentSession)
-        await fetchUserProfile(currentSession.user)
-      }
-    } catch {}
-    setLoading(false)
-  }
-
   useEffect(() => {
     setupNativeAuthListener()
-
-    // Register callback — called by nativeAuth after setSession() completes
-    // This is the ONLY reliable way to notify React after Capacitor deep link
-    registerSessionReadyCallback(handleSessionReady)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
