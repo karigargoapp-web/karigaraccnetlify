@@ -1,7 +1,6 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
-import { setupNativeAuthListener } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -98,8 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    setupNativeAuthListener()
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
       setSession(session)
