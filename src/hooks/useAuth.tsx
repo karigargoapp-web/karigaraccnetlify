@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
@@ -22,7 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const loadingRef = useRef(true)
 
   const fetchUserProfile = async (supaUser: SupaUser) => {
     try {
@@ -112,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
     setLoading(false)
-    loadingRef.current = false
   }
 
   useEffect(() => {
@@ -131,7 +129,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
       }
       setLoading(false)
-      loadingRef.current = false
     })
 
     return () => subscription.unsubscribe()

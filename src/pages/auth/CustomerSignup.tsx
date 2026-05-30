@@ -122,7 +122,7 @@ export default function CustomerSignup() {
     if (rawPhone) {
       const { data: existingPhone, error: phoneCheckError } = await supabase.from('users').select('id').eq('phone', phoneForDb).maybeSingle()
       if (phoneCheckError) {
-        console.error('Phone check error:', phoneCheckError)
+
         toast.error('Could not verify phone number. Please try again.')
         setLoading(false)
         return
