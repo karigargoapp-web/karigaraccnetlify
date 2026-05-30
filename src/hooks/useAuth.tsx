@@ -107,36 +107,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
-    // On native: if a pending session was stored by appUrlOpen (after OAuth redirect),
-    // apply it immediately before onAuthStateChange fires so router navigates correctly
-    const applyPendingSession = async () => {
-      if (!isNative) return
+    // Subscribe FIRST so we never miss SIGNED_IN event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+      setSession(session)
+      if (session?.user) {
+        await fetchUserProfile(session.user)
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    // THEN apply pending session — SIGNED_IN will now be caught by subscription above
+    if (isNative) {
       const pending = localStorage.getItem('karigargo-pending-session')
-      if (!pending) return
-      try {
+      if (pending) {
         localStorage.removeItem('karigargo-pending-session')
-        const { access_token, refresh_token } = JSON.parse(pending)
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token })
-        }
-      } catch {}
+        try {
+          const { access_token, refresh_token } = JSON.parse(pending)
+          if (access_token && refresh_token) {
+            supabase.auth.setSession({ access_token, refresh_token })
+          }
+        } catch {}
+      }
     }
 
-    applyPendingSession().then(() => {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-
-        setSession(session)
-        if (session?.user) {
-          await fetchUserProfile(session.user)
-        } else {
-          setUser(null)
-        }
-        setLoading(false)
-      })
-
-      return () => subscription.unsubscribe()
-    })
+    return () => subscription.unsubscribe()
   }, [])
 
   const signOut = async () => {
