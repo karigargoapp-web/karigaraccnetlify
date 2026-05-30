@@ -79,10 +79,10 @@ export default function Login() {
   const handleGoogle = async () => {
     setGoogleLoading(true)
     sessionStorage.setItem('auth-intended-portal', 'customer')
+    localStorage.setItem('oauth-intended-role', 'customer')
     try {
       if (isNativeApp()) {
         await signInWithGoogleNative('customer')
-        // Browser is now open — reset loading so user isn't stuck if they cancel
         setGoogleLoading(false)
       } else {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -93,6 +93,7 @@ export default function Login() {
       }
     } catch (err: any) {
       sessionStorage.removeItem('auth-intended-portal')
+      localStorage.removeItem('oauth-intended-role')
       toast.error(err.message || 'Google sign-in failed')
       setGoogleLoading(false)
     }
