@@ -16,7 +16,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
 const isNative = Capacitor.isNativePlatform()
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -49,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { data, error: fetchErr } = await supabase
         .from('users').select('*').eq('id', supaUser.id).maybeSingle()
-
       if (fetchErr) throw fetchErr
 
       if (data) {
@@ -107,39 +105,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
-    const init = async () => {
-      // On native: apply any pending OAuth session BEFORE subscribing
-      // This ensures INITIAL_SESSION fires WITH the session already set
-      if (isNative) {
-        const pending = localStorage.getItem('karigargo-pending-session')
-        if (pending) {
-          localStorage.removeItem('karigargo-pending-session')
-          try {
-            const { access_token, refresh_token } = JSON.parse(pending)
-            if (access_token && refresh_token) {
-              await supabase.auth.setSession({ access_token, refresh_token })
-            }
-          } catch {}
-        }
+    // Also check for manually stored pending session (fallback)
+    if (isNative) {
+      const pending = localStorage.getItem('karigargo-pending-session')
+      if (pending) {
+        localStorage.removeItem('karigargo-pending-session')
+        try {
+          const { access_token, refresh_token } = JSON.parse(pending)
+          if (access_token && refresh_token) {
+            supabase.auth.setSession({ access_token, refresh_token })
+          }
+        } catch {}
       }
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-        setSession(session)
-        if (session?.user) {
-          await fetchUserProfile(session.user)
-        } else {
-          setUser(null)
-        }
-        setLoading(false)
-      })
-
-      return subscription
     }
 
-    let sub: any
-    init().then(s => { sub = s })
-    return () => sub?.unsubscribe()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+      setSession(session)
+      if (session?.user) {
+        await fetchUserProfile(session.user)
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signOut = async () => {

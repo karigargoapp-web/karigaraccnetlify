@@ -19,30 +19,26 @@ export function setupNativeAuthListener() {
         const params = new URLSearchParams(hashPart)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
-        const expiresIn = params.get('expires_in')
-        const expiresAt = params.get('expires_at')
-        const tokenType = params.get('token_type')
 
         if (accessToken && refreshToken) {
-          // Write session directly to localStorage in Supabase's exact format
-          // so that when the WebView restarts, Supabase reads it on INITIAL_SESSION
-          const sessionData = {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            expires_in: expiresIn ? parseInt(expiresIn) : 3600,
-            expires_at: expiresAt ? parseInt(expiresAt) : Math.floor(Date.now() / 1000) + 3600,
-            token_type: tokenType || 'bearer',
-          }
-          localStorage.setItem('karigargo-pending-session', JSON.stringify(sessionData))
-
-          // Also call setSession so if WebView is alive it updates immediately
+          // Set session — this writes to localStorage synchronously via Supabase
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
           if (error) {
             toast.error('Sign-in failed: ' + error.message)
-            localStorage.removeItem('karigargo-pending-session')
+            return
+          }
+          // Verify it was written to localStorage
+          const stored = localStorage.getItem('supabase.auth.token')
+          if (stored) {
+            // Hard restart — fresh WebView will read session from localStorage on mount
+            window.location.href = window.location.origin
+          } else {
+            // Fallback: store manually and restart
+            localStorage.setItem('karigargo-pending-session', JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }))
+            window.location.href = window.location.origin
           }
           return
         }
@@ -54,7 +50,8 @@ export function setupNativeAuthListener() {
         const code = params.get('code')
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) { toast.error('Sign-in failed: ' + error.message); return }
+          window.location.href = window.location.origin
         }
       }
     } catch (e: any) {
