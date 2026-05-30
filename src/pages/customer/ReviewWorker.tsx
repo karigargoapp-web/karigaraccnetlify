@@ -54,23 +54,29 @@ export default function ReviewWorker() {
     if (!ratings.quality || !ratings.punctuality || !ratings.behaviour) return toast.error('Please rate all 3 criteria')
     if (!user || !job) return
     setLoading(true)
-    await supabase.from('reviews').insert({
-      job_id: job.id,
-      reviewer_id: user.id,
-      reviewer_name: user.name,
-      worker_id: job.worker_id,
-      rating: avgRating,
-      comment: comment.trim() || null,
-      direction: 'customer_to_worker',
-    })
-    const { data: reviews } = await supabase.from('reviews').select('rating').eq('worker_id', job.worker_id).eq('direction', 'customer_to_worker')
-    if (reviews && reviews.length > 0) {
-      const avg = reviews.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviews.length
-      await supabase.from('worker_profiles').update({ avg_rating: Math.round(avg * 10) / 10, total_jobs: reviews.length }).eq('user_id', job.worker_id)
+    try {
+      const { error } = await supabase.from('reviews').insert({
+        job_id: job.id,
+        reviewer_id: user.id,
+        reviewer_name: user.name,
+        worker_id: job.worker_id,
+        rating: avgRating,
+        comment: comment.trim() || null,
+        direction: 'customer_to_worker',
+      })
+      if (error) throw error
+      const { data: reviews } = await supabase.from('reviews').select('rating').eq('worker_id', job.worker_id).eq('direction', 'customer_to_worker')
+      if (reviews && reviews.length > 0) {
+        const avg = reviews.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviews.length
+        await supabase.from('worker_profiles').update({ avg_rating: Math.round(avg * 10) / 10, total_jobs: reviews.length }).eq('user_id', job.worker_id)
+      }
+      setSubmitted(true)
+      setTimeout(() => nav('/customer/home'), 2000)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit review')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-    setSubmitted(true)
-    setTimeout(() => nav('/customer/home'), 2000)
   }
 
   if (submitted) return (

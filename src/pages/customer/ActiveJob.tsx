@@ -42,12 +42,14 @@ export default function CustomerActiveJob() {
   const total = inspectionFee + workCost
 
   const markInspectionComplete = async () => {
-    await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
+    const { error } = await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
+    if (error) return toast.error(error.message)
     toast.success('Inspection marked complete!')
   }
 
   const requestWorkCost = async () => {
-    await supabase.from('jobs').update({ status: 'proceedRequested' }).eq('id', jobId)
+    const { error } = await supabase.from('jobs').update({ status: 'proceedRequested' }).eq('id', jobId)
+    if (error) return toast.error(error.message)
     await supabase.from('notifications').insert({
       user_id: job!.worker_id,
       type: 'system',
@@ -58,7 +60,8 @@ export default function CustomerActiveJob() {
   }
 
   const endAtInspection = async () => {
-    await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+    if (error) return toast.error(error.message)
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId)
     toast('Job ended at inspection. Payment settled.')
     nav(`/customer/receipt/${jobId}`)
@@ -84,7 +87,8 @@ export default function CustomerActiveJob() {
   }
 
   const declineWorkCost = async () => {
-    await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+    if (error) return toast.error(error.message)
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString(), work_cost: 0 }).eq('id', jobId)
     toast('Work cost declined — inspection fee paid.')
     nav(`/customer/receipt/${jobId}`)

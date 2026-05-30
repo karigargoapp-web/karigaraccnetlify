@@ -144,7 +144,8 @@ export default function WorkerActiveJob() {
 
   const submitWorkCost = async () => {
     if (!workCost || Number(workCost) <= 0) return toast.error('Enter a valid cost')
-    await supabase.from('jobs').update({ status: 'workCostProposed', work_cost: Number(workCost) }).eq('id', jobId)
+    const { error } = await supabase.from('jobs').update({ status: 'workCostProposed', work_cost: Number(workCost) }).eq('id', jobId)
+    if (error) return toast.error(error.message)
     await supabase.from('notifications').insert({
       user_id: job!.customer_id,
       type: 'system',

@@ -27,18 +27,24 @@ export default function ReviewCustomer() {
     if (rating === 0) return toast.error('Please select a rating')
     if (!user || !job) return
     setLoading(true)
-    await supabase.from('reviews').insert({
-      job_id: job.id,
-      reviewer_id: user.id,
-      reviewer_name: user.name,
-      customer_id: job.customer_id,
-      rating,
-      comment: feedback.trim() || null,
-      review_type: 'worker_to_customer',
-    })
-    setLoading(false)
-    setSubmitted(true)
-    setTimeout(() => nav('/worker/dashboard'), 2000)
+    try {
+      const { error } = await supabase.from('reviews').insert({
+        job_id: job.id,
+        reviewer_id: user.id,
+        reviewer_name: user.name,
+        customer_id: job.customer_id,
+        rating,
+        comment: feedback.trim() || null,
+        review_type: 'worker_to_customer',
+      })
+      if (error) throw error
+      setSubmitted(true)
+      setTimeout(() => nav('/worker/dashboard'), 2000)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit review')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (submitted) {
