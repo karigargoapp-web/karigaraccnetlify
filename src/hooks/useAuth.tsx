@@ -107,33 +107,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
-    // Subscribe FIRST so we never miss SIGNED_IN event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-      setSession(session)
-      if (session?.user) {
-        await fetchUserProfile(session.user)
-      } else {
-        setUser(null)
+    const init = async () => {
+      // On native: apply any pending OAuth session BEFORE subscribing
+      // This ensures INITIAL_SESSION fires WITH the session already set
+      if (isNative) {
+        const pending = localStorage.getItem('karigargo-pending-session')
+        if (pending) {
+          localStorage.removeItem('karigargo-pending-session')
+          try {
+            const { access_token, refresh_token } = JSON.parse(pending)
+            if (access_token && refresh_token) {
+              await supabase.auth.setSession({ access_token, refresh_token })
+            }
+          } catch {}
+        }
       }
-      setLoading(false)
-    })
 
-    // THEN apply pending session — SIGNED_IN will now be caught by subscription above
-    if (isNative) {
-      const pending = localStorage.getItem('karigargo-pending-session')
-      if (pending) {
-        localStorage.removeItem('karigargo-pending-session')
-        try {
-          const { access_token, refresh_token } = JSON.parse(pending)
-          if (access_token && refresh_token) {
-            supabase.auth.setSession({ access_token, refresh_token })
-          }
-        } catch {}
-      }
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+        setSession(session)
+        if (session?.user) {
+          await fetchUserProfile(session.user)
+        } else {
+          setUser(null)
+        }
+        setLoading(false)
+      })
+
+      return subscription
     }
 
-    return () => subscription.unsubscribe()
+    let sub: any
+    init().then(s => { sub = s })
+    return () => sub?.unsubscribe()
   }, [])
 
   const signOut = async () => {
