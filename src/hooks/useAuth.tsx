@@ -33,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const emailConfirmed = !!supaUser.email_confirmed_at
       const isGoogleUser =
         supaUser.app_metadata?.provider === 'google' ||
         supaUser.identities?.some(i => i.provider === 'google')
@@ -61,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchErr) throw fetchErr
 
       if (data) {
-        // Portal enforcement — sessionStorage is wiped on APK resume so skip on native
+        // Portal enforcement — only on web (sessionStorage wiped on APK resume)
         if (!isNative) {
           const intendedPortal = sessionStorage.getItem('auth-intended-portal')
           if (intendedPortal) {
@@ -71,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const correctPage = data.role === 'worker' ? 'worker login' : 'customer login'
               sessionStorage.setItem(
                 'auth-portal-error',
-                `This account is registered as a ${data.role}. Please sign in on the ${correctPage} page.`,
+                `This account is registered as a ${data.role}. Please sign in on the ${correctPage} page.`
               )
               window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
               return
@@ -80,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const updates: Record<string, unknown> = {}
-        if (!data.verified && (emailConfirmed || isGoogleUser)) {
+        if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) {
           updates.verified = true
           data.verified = true
         }
@@ -91,19 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (Object.keys(updates).length > 0) {
           await supabase.from('users').update(updates).eq('id', supaUser.id)
         }
-        if (data.role === 'worker' && data.approval_status !== 'approved') {
-          setUser(data as AppUser)
-          if (!window.location.pathname.startsWith('/worker/pending-approval')) {
-            window.location.href = '/worker/pending-approval'
-          }
-          return
-        }
+
         setUser(data as AppUser)
         return
       }
 
       // New Google user — create profile
       if (!isGoogleUser) return
+
       const intendedRole = localStorage.getItem('oauth-intended-role')
       localStorage.removeItem('oauth-intended-role')
       const role: UserRole = intendedRole === 'worker' ? 'worker' : 'customer'
@@ -118,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p_profile_photo_url: photo,
         p_verified: true,
       })
-
       if (rpcErr) throw rpcErr
 
       if (role === 'worker') {
@@ -144,7 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     } catch (err) {
       console.error('[KarigarGo] fetchUserProfile error:', err)
-      // Don't leave user stuck on loading — let them retry
       setUser(null)
     }
   }
@@ -152,30 +144,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (
         event === 'TOKEN_REFRESHED' ||
         event === 'PASSWORD_RECOVERY' ||
         event === 'USER_UPDATED'
       ) return
 
-      // On native APK: INITIAL_SESSION fires immediately.
-      // Always resolve loading so the router renders.
-      // If a stored session exists, Supabase will fire SIGNED_IN right after.
-      if (isNative && event === 'INITIAL_SESSION' && !session) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
-
       setSession(session)
+
       if (session?.user) {
         await fetchUserProfile(session.user)
       } else {
         setUser(null)
       }
+
       setLoading(false)
     })
 

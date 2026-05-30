@@ -14,31 +14,40 @@ export function setupNativeAuthListener() {
     if (!url) return
 
     try {
-      // Implicit flow: tokens come in hash fragment
-      // karigargo://login#access_token=xxx&refresh_token=yyy
       const hashPart = url.includes('#') ? url.split('#')[1] : ''
       if (hashPart) {
         const params = new URLSearchParams(hashPart)
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
+          const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) {
+            toast.error('Sign-in failed: ' + error.message)
+            return
+          }
+          // Session is set. Hard reload — on restart Supabase reads from localStorage
+          // and fires SIGNED_IN before React renders, so router navigates correctly.
+          setTimeout(() => {
+            window.location.reload()
+          }, 300)
           return
         }
       }
 
-      // Fallback: PKCE code (should not happen with implicit flow)
       const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
       if (queryPart) {
         const params = new URLSearchParams(queryPart)
         const code = params.get('code')
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) {
+            toast.error('Sign-in failed: ' + error.message)
+            return
+          }
+          setTimeout(() => { window.location.reload() }, 300)
         }
       }
     } catch (e: any) {
