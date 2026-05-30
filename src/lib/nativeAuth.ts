@@ -15,26 +15,8 @@ export function setupNativeAuthListener() {
     if (!url) return
 
     try {
-      // Server always returns PKCE code: karigargo://login?code=xxx
-      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
-      if (queryPart) {
-        const params = new URLSearchParams(queryPart)
-        const code = params.get('code')
-        if (code) {
-          // code_verifier was stored in localStorage by signInWithOAuth (PKCE flow)
-          // It survives Chrome Custom Tab because localStorage persists
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) {
-            toast.error('Sign-in failed: ' + error.message)
-            return
-          }
-          // Session is now active — onAuthStateChange will fire SIGNED_IN
-          // which triggers fetchUserProfile → setUser → router navigates
-          return
-        }
-      }
-
-      // Fallback: implicit tokens in hash (shouldn't happen but handle anyway)
+      // Implicit flow: tokens in hash fragment
+      // karigargo://login#access_token=xxx&refresh_token=yyy
       const hashPart = url.includes('#') ? url.split('#')[1] : ''
       if (hashPart) {
         const params = new URLSearchParams(hashPart)
@@ -46,6 +28,19 @@ export function setupNativeAuthListener() {
             refresh_token: refreshToken,
           })
           if (error) toast.error('Sign-in failed: ' + error.message)
+          return
+        }
+      }
+
+      // PKCE fallback: code in query params
+      const queryPart = url.includes('?') ? url.split('?')[1].split('#')[0] : ''
+      if (queryPart) {
+        const params = new URLSearchParams(queryPart)
+        const code = params.get('code')
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) toast.error('Sign-in failed: ' + error.message)
+          return
         }
       }
     } catch (e: any) {
@@ -57,8 +52,6 @@ export function setupNativeAuthListener() {
 export async function signInWithGoogleNative(intendedRole: 'customer' | 'worker' = 'customer') {
   localStorage.setItem('oauth-intended-role', intendedRole)
 
-  // PKCE flow: SDK generates code_verifier and stores in localStorage
-  // Then generates OAuth URL with code_challenge
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -70,6 +63,12 @@ export async function signInWithGoogleNative(intendedRole: 'customer' | 'worker'
   if (error) throw error
   if (!data.url) throw new Error('No OAuth URL returned')
 
-  // Open Chrome Custom Tab — localStorage (with code_verifier) persists in background
-  await Browser.open({ url: data.url })
+  // Force implicit flow by stripping PKCE params from URL
+  // This makes the server return #access_token instead of ?code
+  // No code_verifier needed — tokens come directly
+  const oauthUrl = new URL(data.url)
+  oauthUrl.searchParams.delete('code_challenge')
+  oauthUrl.searchParams.delete('code_challenge_method')
+
+  await Browser.open({ url: oauthUrl.toString() })
 }
