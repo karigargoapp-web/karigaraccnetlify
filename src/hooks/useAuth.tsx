@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
-import { setupNativeAuthListener, setNativeAuthCallback } from '../lib/nativeAuth'
+import { setupNativeAuthListener } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -23,24 +23,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
-
-  const fetchAndSetUser = async () => {
-    try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      if (!currentSession?.user) {
-        setUser(null)
-        setSession(null)
-        setLoading(false)
-        return
-      }
-      setSession(currentSession)
-      await fetchUserProfile(currentSession.user)
-      setLoading(false)
-    } catch {
-      setUser(null)
-      setLoading(false)
-    }
-  }
 
   const fetchUserProfile = async (supaUser: SupaUser) => {
     try {
@@ -125,28 +107,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
-    // On native: when OAuth completes, setSession is called in nativeAuth.
-    // We register a callback that manually re-fetches the session and updates React state.
-    // This bypasses onAuthStateChange which may not fire reliably after appUrlOpen.
-    if (isNative) {
-      setNativeAuthCallback(() => {
-        fetchAndSetUser()
-      })
+    // On native: if a pending session was stored by appUrlOpen (after OAuth redirect),
+    // apply it immediately before onAuthStateChange fires so router navigates correctly
+    const applyPendingSession = async () => {
+      if (!isNative) return
+      const pending = localStorage.getItem('karigargo-pending-session')
+      if (!pending) return
+      try {
+        localStorage.removeItem('karigargo-pending-session')
+        const { access_token, refresh_token } = JSON.parse(pending)
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token })
+        }
+      } catch {}
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+    applyPendingSession().then(() => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
 
-      setSession(session)
-      if (session?.user) {
-        await fetchUserProfile(session.user)
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
+        setSession(session)
+        if (session?.user) {
+          await fetchUserProfile(session.user)
+        } else {
+          setUser(null)
+        }
+        setLoading(false)
+      })
+
+      return () => subscription.unsubscribe()
     })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   const signOut = async () => {
