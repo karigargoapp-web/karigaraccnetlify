@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { supabase } from '../lib/supabase'
-import { setupNativeAuthListener } from '../lib/nativeAuth'
+import { setupNativeAuthListener, setNativeAuthCallback } from '../lib/nativeAuth'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
@@ -24,14 +24,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const fetchAndSetUser = async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      if (!currentSession?.user) {
+        setUser(null)
+        setSession(null)
+        setLoading(false)
+        return
+      }
+      setSession(currentSession)
+      await fetchUserProfile(currentSession.user)
+      setLoading(false)
+    } catch {
+      setUser(null)
+      setLoading(false)
+    }
+  }
+
   const fetchUserProfile = async (supaUser: SupaUser) => {
     try {
       const kicked = await signOutIfEmailPasswordUnconfirmed(supaUser)
-      if (kicked) {
-        setSession(null)
-        setUser(null)
-        return
-      }
+      if (kicked) { setSession(null); setUser(null); return }
 
       const isGoogleUser =
         supaUser.app_metadata?.provider === 'google' ||
@@ -52,86 +66,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'User'
 
       const { data, error: fetchErr } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', supaUser.id)
-        .maybeSingle()
+        .from('users').select('*').eq('id', supaUser.id).maybeSingle()
 
       if (fetchErr) throw fetchErr
 
       if (data) {
-        // Portal enforcement — only on web (sessionStorage wiped on APK resume)
         if (!isNative) {
           const intendedPortal = sessionStorage.getItem('auth-intended-portal')
           if (intendedPortal) {
             sessionStorage.removeItem('auth-intended-portal')
             if (data.role !== intendedPortal && data.role !== 'admin') {
               await supabase.auth.signOut({ scope: 'local' })
-              const correctPage = data.role === 'worker' ? 'worker login' : 'customer login'
-              sessionStorage.setItem(
-                'auth-portal-error',
-                `This account is registered as a ${data.role}. Please sign in on the ${correctPage} page.`
-              )
+              sessionStorage.setItem('auth-portal-error',
+                `This account is registered as a ${data.role}. Please sign in on the ${data.role === 'worker' ? 'worker' : 'customer'} login page.`)
               window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
               return
             }
           }
         }
-
         const updates: Record<string, unknown> = {}
-        if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) {
-          updates.verified = true
-          data.verified = true
-        }
-        if (!data.profile_photo_url && photo) {
-          updates.profile_photo_url = photo
-          data.profile_photo_url = photo
-        }
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('users').update(updates).eq('id', supaUser.id)
-        }
-
+        if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) { updates.verified = true; data.verified = true }
+        if (!data.profile_photo_url && photo) { updates.profile_photo_url = photo; data.profile_photo_url = photo }
+        if (Object.keys(updates).length > 0) await supabase.from('users').update(updates).eq('id', supaUser.id)
         setUser(data as AppUser)
         return
       }
 
-      // New Google user — create profile
       if (!isGoogleUser) return
-
       const intendedRole = localStorage.getItem('oauth-intended-role')
       localStorage.removeItem('oauth-intended-role')
       const role: UserRole = intendedRole === 'worker' ? 'worker' : 'customer'
 
       const { error: rpcErr } = await supabase.rpc('handle_signup_user', {
-        p_id: supaUser.id,
-        p_name: name,
-        p_email: supaUser.email || '',
-        p_phone: null,
-        p_role: role,
-        p_city: null,
-        p_profile_photo_url: photo,
-        p_verified: true,
+        p_id: supaUser.id, p_name: name, p_email: supaUser.email || '',
+        p_phone: null, p_role: role, p_city: null,
+        p_profile_photo_url: photo, p_verified: true,
       })
       if (rpcErr) throw rpcErr
 
       if (role === 'worker') {
         await supabase.rpc('handle_signup_worker_profile', {
-          p_user_id: supaUser.id,
-          p_skills: [],
-          p_bio: null,
-          p_cnic: '',
-          p_cnic_front_url: '',
-          p_cnic_back_url: '',
-          p_certificate_urls: null,
+          p_user_id: supaUser.id, p_skills: [], p_bio: null,
+          p_cnic: '', p_cnic_front_url: '', p_cnic_back_url: '', p_certificate_urls: null,
         })
       }
 
       const { data: newData, error: newFetchErr } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', supaUser.id)
-        .maybeSingle()
-
+        .from('users').select('*').eq('id', supaUser.id).maybeSingle()
       if (newFetchErr) throw newFetchErr
       if (newData) setUser(newData as AppUser)
 
@@ -144,21 +125,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setupNativeAuthListener()
 
+    // On native: when OAuth completes, setSession is called in nativeAuth.
+    // We register a callback that manually re-fetches the session and updates React state.
+    // This bypasses onAuthStateChange which may not fire reliably after appUrlOpen.
+    if (isNative) {
+      setNativeAuthCallback(() => {
+        fetchAndSetUser()
+      })
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (
-        event === 'TOKEN_REFRESHED' ||
-        event === 'PASSWORD_RECOVERY' ||
-        event === 'USER_UPDATED'
-      ) return
+      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
 
       setSession(session)
-
       if (session?.user) {
         await fetchUserProfile(session.user)
       } else {
         setUser(null)
       }
-
       setLoading(false)
     })
 
@@ -177,9 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider
-      value={{ session, user, role: user?.role ?? null, loading, signOut, refreshUser }}
-    >
+    <AuthContext.Provider value={{ session, user, role: user?.role ?? null, loading, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

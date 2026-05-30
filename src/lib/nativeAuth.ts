@@ -6,6 +6,12 @@ import toast from 'react-hot-toast'
 
 export const NATIVE_REDIRECT = 'karigargo://login'
 
+let authStateCallback: (() => void) | null = null
+
+export function setNativeAuthCallback(cb: () => void) {
+  authStateCallback = cb
+}
+
 export function setupNativeAuthListener() {
   if (!Capacitor.isNativePlatform()) return
 
@@ -20,19 +26,15 @@ export function setupNativeAuthListener() {
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         if (accessToken && refreshToken) {
-          const { data, error } = await supabase.auth.setSession({
+          const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           })
           if (error) {
             toast.error('Sign-in failed: ' + error.message)
-            return
+          } else if (authStateCallback) {
+            authStateCallback()
           }
-          // Session is set. Hard reload — on restart Supabase reads from localStorage
-          // and fires SIGNED_IN before React renders, so router navigates correctly.
-          setTimeout(() => {
-            window.location.reload()
-          }, 300)
           return
         }
       }
@@ -45,9 +47,9 @@ export function setupNativeAuthListener() {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (error) {
             toast.error('Sign-in failed: ' + error.message)
-            return
+          } else if (authStateCallback) {
+            authStateCallback()
           }
-          setTimeout(() => { window.location.reload() }, 300)
         }
       }
     } catch (e: any) {
