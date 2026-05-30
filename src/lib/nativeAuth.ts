@@ -26,7 +26,12 @@ export function setupNativeAuthListener() {
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) {
+            toast.error('Sign-in failed: ' + error.message)
+          } else {
+            // Force the app to re-evaluate auth state and navigate
+            window.location.href = '/'
+          }
           return
         }
       }
