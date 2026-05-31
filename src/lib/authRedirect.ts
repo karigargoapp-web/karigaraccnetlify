@@ -4,23 +4,12 @@ export function isNativeApp(): boolean {
   return Capacitor.isNativePlatform()
 }
 
-export function getAuthRedirectBase(): string {
-  if (isNativeApp()) {
-    return 'karigargo://login'
-  }
-  const fromEnv = import.meta.env.VITE_SITE_URL as string | undefined
-  const trimmed = fromEnv?.trim()
-  if (trimmed && /^https?:\/\//i.test(trimmed)) {
-    return trimmed.replace(/\/$/, '')
-  }
-  return typeof window !== 'undefined' ? window.location.origin : ''
-}
-
 export function emailRedirect(path: string): string {
   if (isNativeApp()) {
     return 'karigargo://login'
   }
-  const base = getAuthRedirectBase()
+  // Always use current origin — works on Netlify, Vercel, and localhost
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const p = path.startsWith('/') ? path : `/${path}`
-  return `${base}${p}`
+  return `${origin}${p}`
 }
