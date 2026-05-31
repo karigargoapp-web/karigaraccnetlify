@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!isGoogleUser) return
+
       const intendedRole = localStorage.getItem('oauth-intended-role')
       localStorage.removeItem('oauth-intended-role')
       const role: UserRole = intendedRole === 'worker' ? 'worker' : 'customer'
@@ -91,15 +92,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newFetchErr) throw newFetchErr
       if (newData) setUser(newData as AppUser)
 
-    } catch (err) {
+    } catch {
       setUser(null)
     }
   }
 
   useEffect(() => {
+    // Safety timeout — if onAuthStateChange never fires, stop loading after 8s
+    const safetyTimer = setTimeout(() => setLoading(false), 8000)
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+
+      clearTimeout(safetyTimer)
       setSession(session)
+
       if (session?.user) {
         await fetchUserProfile(session.user)
       } else {
@@ -108,7 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(safetyTimer)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signOut = async () => {
