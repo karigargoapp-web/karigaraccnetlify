@@ -3,22 +3,16 @@ import { createClient } from '@supabase/supabase-js'
 const FALLBACK_URL = 'https://epekjmfmbgwfonjyhklm.supabase.co'
 const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZWtqbWZtYmd3Zm9uanloa2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzQzMzEsImV4cCI6MjA5MDExMDMzMX0.eF0tO2tfGBDt2JkkMl0TeWs7sedba2GabNPXPFFmFkM'
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || FALLBACK_URL
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || FALLBACK_ANON_KEY
-
-// If URL has ?code=, clear any old session so initializePromise doesn't hang trying to refresh it
-const SESSION_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token'
-if (typeof window !== 'undefined' && window.location.search.includes('code=')) {
-  localStorage.removeItem(SESSION_KEY)
-}
+export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || FALLBACK_URL
+export const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || FALLBACK_ANON_KEY
 
 export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false,
       flowType: 'pkce',
       persistSession: true,
       autoRefreshToken: true,

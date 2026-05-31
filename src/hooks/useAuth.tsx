@@ -1,8 +1,10 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
+
+const VERIFIER_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token-code-verifier'
 
 interface AuthContextType {
   session: Session | null
@@ -14,6 +16,36 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+async function exchangeCodeFromUrl(): Promise<boolean> {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
+  if (!code) return false
+
+  window.history.replaceState({}, '', window.location.pathname)
+
+  const raw = localStorage.getItem(VERIFIER_KEY) || localStorage.getItem('karigargo-pkce-backup') || ''
+  const verifier = raw.split('/')[0]
+  localStorage.removeItem(VERIFIER_KEY)
+  localStorage.removeItem('karigargo-pkce-backup')
+  if (!verifier) return false
+
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+    })
+    if (!resp.ok) return false
+    const data = await resp.json()
+    if (data.access_token && data.refresh_token) {
+      // Write directly to localStorage — bypasses SDK initializePromise
+      localStorage.setItem('sb-epekjmfmbgwfonjyhklm-auth-token', JSON.stringify(data))
+      return true
+    }
+  } catch {}
+  return false
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -100,8 +132,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    const init = async () => {
+      // Step 1: Exchange OAuth code if present (via REST — no SDK blocking)
+      const exchanged = await exchangeCodeFromUrl()
+
+      // Step 2: Get session with timeout — prevents SDK initializePromise hang
+      let currentSession: Session | null = null
+      try {
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+        ])
+        currentSession = result.data.session
+      } catch {
+        // getSession timed out — try reading directly from localStorage
+        try {
+          const raw = localStorage.getItem('sb-epekjmfmbgwfonjyhklm-auth-token')
+          if (raw) {
+            const parsed = JSON.parse(raw)
+            if (parsed?.access_token) {
+              await supabase.auth.setSession({
+                access_token: parsed.access_token,
+                refresh_token: parsed.refresh_token,
+              })
+              const r = await supabase.auth.getSession()
+              currentSession = r.data.session
+            }
+          }
+        } catch {}
+      }
+
+      if (!mounted) return
+      setSession(currentSession)
+      if (currentSession?.user) {
+        await fetchUserProfile(currentSession.user)
+      } else {
+        setUser(null)
+      }
+      if (mounted) setLoading(false)
+    }
+
+    init()
+
+    // Listen for future auth events (manual login, logout, etc)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
+      if (event === 'INITIAL_SESSION') return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
       setSession(session)
       if (session?.user) {
