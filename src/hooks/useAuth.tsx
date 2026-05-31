@@ -100,26 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
-    const init = async () => {
-      // Get current session — handles both normal login and post-OAuth code exchange
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!mounted) return
-      setSession(session)
-      if (session?.user) {
-        await fetchUserProfile(session.user)
-      } else {
-        setUser(null)
-      }
-      if (mounted) setLoading(false)
-    }
-
-    init()
-
-    // Listen for subsequent auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      if (event === 'INITIAL_SESSION') return // handled by init() above
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+
       setSession(session)
       if (session?.user) {
         await fetchUserProfile(session.user)
