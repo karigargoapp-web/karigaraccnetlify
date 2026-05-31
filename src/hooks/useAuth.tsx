@@ -4,6 +4,10 @@ import { supabase } from '../lib/supabase'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
+const SUPABASE_URL = 'https://epekjmfmbgwfonjyhklm.supabase.co'
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZWtqbWZtYmd3Zm9uanloa2xtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzQzMzEsImV4cCI6MjA5MDExMDMzMX0.eF0tO2tfGBDt2JkkMl0TeWs7sedba2GabNPXPFFmFkM'
+const VERIFIER_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token-code-verifier'
+
 interface AuthContextType {
   session: Session | null
   user: AppUser | null
@@ -100,20 +104,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    const exchangeCodeViaRest = async (code: string): Promise<boolean> => {
+      const verifierRaw = localStorage.getItem(VERIFIER_KEY)
+      const backupRaw = localStorage.getItem('karigargo-pkce-backup')
+      const verifier = verifierRaw?.split('/')[0] || backupRaw?.split('/')[0] || ''
+      localStorage.removeItem(VERIFIER_KEY)
+      localStorage.removeItem('karigargo-pkce-backup')
+      if (!verifier) return false
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
+          body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+        })
+        if (!resp.ok) return false
+        const tokens = await resp.json()
+        if (tokens.access_token && tokens.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+          })
+          return true
+        }
+      } catch {}
+      return false
+    }
+
     const init = async () => {
-      // Step 1: If URL has ?code=xxx (OAuth callback), exchange it first
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
+
       if (code) {
-        try {
-          await supabase.auth.exchangeCodeForSession(code)
-        } catch {}
-        // Clean URL — remove ?code from address bar
         const cleanUrl = window.location.pathname + window.location.hash
         window.history.replaceState({}, '', cleanUrl)
+        await exchangeCodeViaRest(code)
       }
 
-      // Step 2: Get whatever session exists now (from exchange above, or from localStorage)
       const { data: { session } } = await supabase.auth.getSession()
       if (!mounted) return
 
@@ -128,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     init()
 
-    // Step 3: Listen for future auth changes (logout, token refresh, new sign-in)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
       if (event === 'INITIAL_SESSION') return
