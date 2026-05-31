@@ -98,33 +98,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    const safetyTimer = setTimeout(() => setLoading(false), 8000)
+    let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-      clearTimeout(safetyTimer)
+    const init = async () => {
+      // Get current session — handles both normal login and post-OAuth code exchange
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!mounted) return
       setSession(session)
       if (session?.user) {
         await fetchUserProfile(session.user)
       } else {
         setUser(null)
       }
-      setLoading(false)
-    })
+      if (mounted) setLoading(false)
+    }
 
-    // Immediately check for existing session — catches cases where
-    // SIGNED_IN fires before onAuthStateChange is subscribed (detectSessionInUrl race)
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    init()
+
+    // Listen for subsequent auth changes (sign in, sign out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+      if (event === 'INITIAL_SESSION') return // handled by init() above
+      if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+      setSession(session)
       if (session?.user) {
-        setSession(session)
         await fetchUserProfile(session.user)
-        setLoading(false)
-        clearTimeout(safetyTimer)
+      } else {
+        setUser(null)
       }
+      if (mounted) setLoading(false)
     })
 
     return () => {
-      clearTimeout(safetyTimer)
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
