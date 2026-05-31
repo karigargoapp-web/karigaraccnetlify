@@ -98,21 +98,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Safety timeout — if onAuthStateChange never fires, stop loading after 8s
     const safetyTimer = setTimeout(() => setLoading(false), 8000)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-
       clearTimeout(safetyTimer)
       setSession(session)
-
       if (session?.user) {
         await fetchUserProfile(session.user)
       } else {
         setUser(null)
       }
       setLoading(false)
+    })
+
+    // Immediately check for existing session — catches cases where
+    // SIGNED_IN fires before onAuthStateChange is subscribed (detectSessionInUrl race)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setSession(session)
+        await fetchUserProfile(session.user)
+        setLoading(false)
+        clearTimeout(safetyTimer)
+      }
     })
 
     return () => {
