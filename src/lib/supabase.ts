@@ -12,7 +12,8 @@ export const supabase = createClient(
   {
     auth: {
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      detectSessionInUrl: true,
+      // We handle code exchange manually — no race conditions
+      detectSessionInUrl: false,
       flowType: 'pkce',
       persistSession: true,
       autoRefreshToken: true,

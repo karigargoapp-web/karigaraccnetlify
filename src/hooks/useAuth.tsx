@@ -100,10 +100,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    const init = async () => {
+      // Step 1: If URL has ?code=xxx (OAuth callback), exchange it first
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+      if (code) {
+        try {
+          await supabase.auth.exchangeCodeForSession(code)
+        } catch {}
+        // Clean URL — remove ?code from address bar
+        const cleanUrl = window.location.pathname + window.location.hash
+        window.history.replaceState({}, '', cleanUrl)
+      }
+
+      // Step 2: Get whatever session exists now (from exchange above, or from localStorage)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!mounted) return
+
+      setSession(session)
+      if (session?.user) {
+        await fetchUserProfile(session.user)
+      } else {
+        setUser(null)
+      }
+      if (mounted) setLoading(false)
+    }
+
+    init()
+
+    // Step 3: Listen for future auth changes (logout, token refresh, new sign-in)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
+      if (event === 'INITIAL_SESSION') return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-
       setSession(session)
       if (session?.user) {
         await fetchUserProfile(session.user)
