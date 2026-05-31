@@ -112,12 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mounted) setLoading(false)
     })
 
-    // Clean ?code= from URL after Supabase processes it
-    if (window.location.search.includes('code=')) {
-      const clean = window.location.pathname + window.location.hash
-      window.history.replaceState({}, '', clean)
-    }
-
     return () => {
       mounted = false
       subscription.unsubscribe()
