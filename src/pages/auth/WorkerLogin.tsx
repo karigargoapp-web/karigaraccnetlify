@@ -7,12 +7,14 @@ import { signInWithGoogleNative } from '../../lib/nativeAuth'
 import { assertEmailConfirmed } from '../../lib/authRole'
 import { validateEmail } from '../../lib/validation'
 import { useI18n } from '../../lib/i18n'
+import { useAuth } from '../../hooks/useAuth'
 import toast from 'react-hot-toast'
 type AuthTab = 'login' | 'signup'
 
 export default function WorkerLogin() {
   const nav = useNavigate()
   const { language, setLanguage, t } = useI18n()
+  const { setUserDirectly } = useAuth()
   const [activeTab, setActiveTab] = useState<AuthTab>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,10 +30,9 @@ export default function WorkerLogin() {
     if (emailErr) return toast.error(emailErr)
     setLoading(true)
     setShowResend(false)
-    sessionStorage.setItem('auth-intended-portal', 'worker')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      sessionStorage.removeItem('auth-intended-portal')
       setLoading(false)
       const msg = error.message?.toLowerCase() || ''
       if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
@@ -51,8 +52,40 @@ export default function WorkerLogin() {
       setShowResend(true)
       return toast.error(emailCheck.message)
     }
-    // Keep loading=true — onAuthStateChange will fire, set user in context,
-    // and AuthRoute will automatically redirect to the correct page
+
+    if (!signInData.user || !signInData.session) {
+      setLoading(false)
+      toast.error('Login failed. Please try again.')
+      return
+    }
+
+    // Directly fetch user profile — do NOT wait for onAuthStateChange
+    const { data: userData, error: userErr } = await supabase
+      .from('users').select('*').eq('id', signInData.user.id).maybeSingle()
+
+    if (userErr || !userData) {
+      setLoading(false)
+      toast.error('Could not load your account. Please try again.')
+      return
+    }
+
+    if (userData.role !== 'worker' && userData.role !== 'admin') {
+      await supabase.auth.signOut({ scope: 'local' })
+      setLoading(false)
+      toast.error('This account is registered as a customer. Please use the customer login.')
+      return
+    }
+
+    // Inject user into auth context immediately — no race condition
+    setUserDirectly(userData, signInData.session)
+
+    if (!userData.profile_complete) {
+      nav('/complete-profile/worker', { replace: true })
+    } else if (userData.role === 'admin') {
+      nav('/admin', { replace: true })
+    } else {
+      nav(userData.approval_status === 'approved' ? '/worker/dashboard' : '/worker/pending-approval', { replace: true })
+    }
   }
 
   const handleResend = async () => {

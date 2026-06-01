@@ -86,7 +86,8 @@ function ProtectedRoute({ allowedRoles }: { allowedRoles?: string[] }) {
 
 function AuthRoute() {
   const { user, loading } = useAuth()
-  if (loading) return (
+  // Only show spinner on true initial load (no user yet and still loading)
+  if (loading && !user) return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center">
       <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
       <p className="text-sm text-text-secondary">Loading...</p>

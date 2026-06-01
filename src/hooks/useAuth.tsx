@@ -11,6 +11,7 @@ interface AuthContextType {
   loading: boolean
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
+  setUserDirectly: (user: AppUser, session: Session) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -20,10 +21,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]       = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchUserProfile = async (supaUser: SupaUser) => {
+  const fetchUserProfile = async (supaUser: SupaUser): Promise<AppUser | null> => {
     try {
       const kicked = await signOutIfEmailPasswordUnconfirmed(supaUser)
-      if (kicked) { setSession(null); setUser(null); return }
+      if (kicked) { setSession(null); setUser(null); return null }
 
       const isGoogleUser =
         supaUser.app_metadata?.provider === 'google' ||
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.setItem('auth-portal-error',
               `This account is registered as a ${data.role}. Please sign in on the ${data.role === 'worker' ? 'worker' : 'customer'} login page.`)
             window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
-            return
+            return null
           }
         }
         const updates: Record<string, unknown> = {}
@@ -64,10 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!data.profile_photo_url && photo) { updates.profile_photo_url = photo; data.profile_photo_url = photo }
         if (Object.keys(updates).length > 0) await supabase.from('users').update(updates).eq('id', supaUser.id)
         setUser(data as AppUser)
-        return
+        return data as AppUser
       }
 
-      if (!isGoogleUser) return
+      if (!isGoogleUser) return null
 
       const intendedRole = localStorage.getItem('oauth-intended-role')
       localStorage.removeItem('oauth-intended-role')
@@ -90,10 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: newData, error: newFetchErr } = await supabase
         .from('users').select('*').eq('id', supaUser.id).maybeSingle()
       if (newFetchErr) throw newFetchErr
-      if (newData) setUser(newData as AppUser)
+      if (newData) { setUser(newData as AppUser); return newData as AppUser }
+      return null
 
     } catch {
       setUser(null)
+      return null
     }
   }
 
@@ -101,21 +104,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
     const code = new URLSearchParams(window.location.search).get('code')
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // onAuthStateChange is ONLY used for:
+    // 1. INITIAL_SESSION — restoring session on page load/refresh
+    // 2. OAuth code exchange (Google login)
+    // 3. SIGNED_OUT — clearing state
+    // Email/password login navigation is handled directly in Login.tsx via setUserDirectly
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+      // Skip INITIAL_SESSION when OAuth code exchange is pending
       if (event === 'INITIAL_SESSION' && code) return
+      // Skip SIGNED_IN — handled directly by login pages to avoid async callback race
+      if (event === 'SIGNED_IN') return
 
-      setSession(session)
-      if (session?.user) {
-        setLoading(true)
-        await fetchUserProfile(session.user)
+      if (event === 'SIGNED_OUT') {
+        setSession(null)
+        setUser(null)
+        if (mounted) setLoading(false)
+        return
+      }
+
+      // INITIAL_SESSION only
+      setSession(sess)
+      if (sess?.user) {
+        await fetchUserProfile(sess.user)
       } else {
         setUser(null)
       }
       if (mounted) setLoading(false)
     })
 
+    // OAuth code exchange — Google login callback
     if (code) {
       window.history.replaceState({}, '', window.location.pathname)
       supabase.auth.exchangeCodeForSession(code)
@@ -138,13 +157,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
 
+  // Called directly by login pages after successful signInWithPassword + DB fetch
+  // Bypasses onAuthStateChange entirely — no async race condition
+  const setUserDirectly = (appUser: AppUser, sess: Session) => {
+    setSession(sess)
+    setUser(appUser)
+    setLoading(false)
+  }
+
   const signOut = async () => {
     setSession(null)
     setUser(null)
     try {
       await supabase.auth.signOut({ scope: 'global' })
     } catch {
-      // ignore errors, still redirect
+      // ignore, still redirect
     }
     window.location.href = '/login'
   }
@@ -154,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ session, user, role: user?.role ?? null, loading, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ session, user, role: user?.role ?? null, loading, signOut, refreshUser, setUserDirectly }}>
       {children}
     </AuthContext.Provider>
   )
