@@ -68,7 +68,10 @@ export default function CompleteCustomerProfile() {
       nav('/customer/home', { replace: true })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : JSON.stringify(e)
-      toast.error(msg || 'Something went wrong. Try again.')
+      if (msg.includes('phone_unique') || msg.includes('users_phone_unique'))
+        toast.error('This phone number is already registered with another account.')
+      else
+        toast.error(msg || 'Something went wrong. Try again.')
     } finally {
       setLoading(false)
       lockRef.current = false
