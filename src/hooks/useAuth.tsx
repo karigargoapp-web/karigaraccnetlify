@@ -104,11 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-      // Skip INITIAL_SESSION when code exchange is handling it directly
       if (event === 'INITIAL_SESSION' && code) return
 
       setSession(session)
       if (session?.user) {
+        setLoading(true)
         await fetchUserProfile(session.user)
       } else {
         setUser(null)
@@ -117,9 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     if (code) {
-      // Clean URL immediately
       window.history.replaceState({}, '', window.location.pathname)
-      // Exchange code and handle result directly — fastest path to dashboard
       supabase.auth.exchangeCodeForSession(code)
         .then(async ({ data, error }) => {
           if (!mounted) return
@@ -141,8 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = async () => {
-    setSession(null); setUser(null)
-    await supabase.auth.signOut({ scope: 'global' })
+    setSession(null)
+    setUser(null)
+    try {
+      await supabase.auth.signOut({ scope: 'global' })
+    } catch {
+      // ignore errors, still redirect
+    }
     window.location.href = '/login'
   }
 

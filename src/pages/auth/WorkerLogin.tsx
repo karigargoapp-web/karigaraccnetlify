@@ -29,7 +29,7 @@ export default function WorkerLogin() {
     setLoading(true)
     setShowResend(false)
     sessionStorage.setItem('auth-intended-portal', 'worker')
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       sessionStorage.removeItem('auth-intended-portal')
       setLoading(false)
@@ -51,30 +51,8 @@ export default function WorkerLogin() {
       setShowResend(true)
       return toast.error(emailCheck.message)
     }
-
-    if (signInData.user) {
-      const { data: userData } = await supabase.from('users').select('*').eq('id', signInData.user.id).maybeSingle()
-      if (userData) {
-        sessionStorage.removeItem('auth-intended-portal')
-        if (userData.role !== 'worker' && userData.role !== 'admin') {
-          await supabase.auth.signOut({ scope: 'local' })
-          setLoading(false)
-          toast.error('This account is registered as a customer. Please sign in on the customer login page.')
-          return
-        }
-        if (!userData.profile_complete) {
-          nav('/complete-profile/worker', { replace: true })
-          return
-        }
-        if (userData.role === 'admin') {
-          nav('/admin', { replace: true })
-          return
-        }
-        nav(userData.approval_status === 'approved' ? '/worker/dashboard' : '/worker/pending-approval', { replace: true })
-        return
-      }
-    }
-    setLoading(false)
+    // Keep loading=true — onAuthStateChange will fire, set user in context,
+    // and AuthRoute will automatically redirect to the correct page
   }
 
   const handleResend = async () => {

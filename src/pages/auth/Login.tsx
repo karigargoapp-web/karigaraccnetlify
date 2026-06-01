@@ -44,7 +44,7 @@ export default function Login() {
     setLoading(true)
     setShowResend(false)
     sessionStorage.setItem('auth-intended-portal', 'customer')
-    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       sessionStorage.removeItem('auth-intended-portal')
       setLoading(false)
@@ -66,26 +66,8 @@ export default function Login() {
       setShowResend(true)
       return toast.error(emailCheck.message)
     }
-
-    if (signInData.user) {
-      const { data: userData } = await supabase.from('users').select('*').eq('id', signInData.user.id).maybeSingle()
-      if (userData) {
-        sessionStorage.removeItem('auth-intended-portal')
-        if (userData.role !== 'customer' && userData.role !== 'admin') {
-          await supabase.auth.signOut({ scope: 'local' })
-          setLoading(false)
-          toast.error('This account is registered as a worker. Please sign in on the worker login page.')
-          return
-        }
-        if (!userData.profile_complete) {
-          nav('/complete-profile/customer', { replace: true })
-          return
-        }
-        nav(userData.role === 'admin' ? '/admin' : '/customer/home', { replace: true })
-        return
-      }
-    }
-    setLoading(false)
+    // Keep loading=true — onAuthStateChange will fire, set user in context,
+    // and AuthRoute will automatically redirect to the correct page
   }
 
   useEffect(() => {
