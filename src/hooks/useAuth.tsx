@@ -99,12 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    const code = new URLSearchParams(window.location.search).get('code')
 
-    // onAuthStateChange handles both INITIAL_SESSION (with session after code exchange)
-    // and subsequent SIGNED_IN / SIGNED_OUT events
+    // Subscribe first so SIGNED_IN from exchange is always caught
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+
+      // If code exchange is pending, skip null INITIAL_SESSION — stay loading
+      if (event === 'INITIAL_SESSION' && !session && code) return
 
       setSession(session)
       if (session?.user) {
@@ -114,6 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (mounted) setLoading(false)
     })
+
+    if (code) {
+      // Clean URL immediately
+      window.history.replaceState({}, '', window.location.pathname)
+      // Exchange code — initializePromise is fast (no old session, no detectSessionInUrl)
+      supabase.auth.exchangeCodeForSession(code)
+        .catch(() => {
+          // Exchange failed — stop loading, show login
+          if (mounted) { setUser(null); setLoading(false) }
+        })
+      // Success fires SIGNED_IN → handled above
+    }
 
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
