@@ -1,4 +1,4 @@
-# KarigarGo — Complete Project Summary for New Chat
+# KarigarGo — Complete Project Summary
 
 ## Project Overview
 KarigarGo is a Pakistani gig-economy marketplace ("Uber for home services") connecting customers with skilled workers (electricians, plumbers, carpenters, AC technicians, painters, cleaners, etc.). Built as a mobile-first Progressive Web App with a full web-based admin panel.
@@ -6,8 +6,8 @@ KarigarGo is a Pakistani gig-economy marketplace ("Uber for home services") conn
 ---
 
 ## Live URLs
-- **Production App:** https://quiet-raindrop-42bbfd.netlify.app
-- **Admin Panel:** https://quiet-raindrop-42bbfd.netlify.app/admin
+- **Production App:** https://karigargo.netlify.app
+- **Admin Panel:** https://karigargo.netlify.app/admin
 - **GitHub Repo:** https://github.com/karigargoapp-web/karigaraccnetlify
 - **Supabase Project ID:** epekjmfmbgwfonjyhklm
 - **Supabase URL:** https://epekjmfmbgwfonjyhklm.supabase.co
@@ -16,9 +16,8 @@ KarigarGo is a Pakistani gig-economy marketplace ("Uber for home services") conn
 
 ## Credentials & Access
 - **GitHub Org:** karigargoapp-web
-- **GitHub Token:** ghp_REDACTED_SEE_GITHUB_SETTINGS
 - **Admin Email:** tayyabbabar2001@gmail.com (role = admin in DB)
-- **Netlify Project:** quiet-raindrop-42bbfd
+- **Netlify Project:** karigargo
 
 ---
 
@@ -36,7 +35,7 @@ Netlify detects push to main branch
         ↓
 Netlify auto-builds (npm run build) and deploys
         ↓
-Live on quiet-raindrop-42bbfd.netlify.app in ~1 min
+Live on karigargo.netlify.app in ~1 min
 ```
 
 ### Supabase Changes (Direct via MCP)
@@ -51,14 +50,12 @@ VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings > API>
 ```
 
 ### Supabase Auth Configuration
-- **Site URL:** https://quiet-raindrop-42bbfd.netlify.app
+- **Site URL:** https://karigargo.netlify.app
 - **Redirect URLs:**
-  - https://quiet-raindrop-42bbfd.netlify.app/**
-  - https://quiet-raindrop-42bbfd.netlify.app/email-confirmed
-  - https://quiet-raindrop-42bbfd.netlify.app/reset-password
+  - https://karigargo.netlify.app/**
   - http://localhost:5173/**
-  - com.karigargo.app://login (for Android APK)
-  - com.karigargo.app://** (for Android APK)
+  - karigargo://login
+  - karigargo://**
 
 ---
 
@@ -72,14 +69,14 @@ VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings > API>
 - Framer Motion
 - React Hot Toast
 - React Icons (Ionicons 5)
-- React Leaflet + Leaflet (maps)
+- React Leaflet + Leaflet (OpenStreetMap — free, no Google Maps API)
 - jsPDF + html2canvas (PDF receipts)
 - DOMPurify (XSS prevention)
 - Capacitor (Android APK wrapper)
 
 ### Backend (All Supabase)
 - PostgreSQL 17
-- Supabase Auth (email/password + Google OAuth)
+- Supabase Auth (email/password + Google OAuth via PKCE)
 - Supabase Realtime (live chat, job updates, location)
 - Supabase Storage (CNIC images, photos, voice notes)
 - Row Level Security (RLS) policies
@@ -120,23 +117,25 @@ VITE_SUPABASE_ANON_KEY=<anon key from Supabase Settings > API>
 - **user_role:** customer, worker, admin
 - **approval_status:** pending, approved, rejected
 
-### Key DB Functions
+### Key DB Functions (9)
 | Function | Purpose |
 |---|---|
 | fn_lock_inspection_escrow | Locks inspection fee to escrow |
 | fn_settle_inspection_only | Settles inspection-only job |
-| fn_lock_work_escrow | Locks work amount + deducts 20rs bidding fee |
+| fn_lock_work_escrow | Locks work amount + deducts bidding fee |
 | fn_complete_job | Final settlement: 10% commission, 2% rewards |
 | fn_dispute_settle | Admin dispute resolution |
 | handle_signup_user | Creates user, sets approval_status by role |
+| handle_complete_signup_profile | Completes profile after signup |
+| handle_signup_worker_profile | Creates worker_profiles row |
 | create_wallet_for_new_user | Auto-creates wallet (100rs bonus for workers) |
-| create_worker_profile_on_signup | Auto-creates worker_profiles row |
 
-### DB Triggers
+### DB Triggers (13)
 - trg_create_wallet — new user gets wallet (100rs for workers)
 - trg_create_worker_profile — new worker gets worker_profiles row
+- Plus 11 additional triggers for various automated operations
 
-### Performance Indexes
+### Performance Indexes (14)
 idx_users_role, idx_users_role_approval, idx_jobs_status, idx_jobs_customer_id,
 idx_jobs_worker_id, idx_jobs_created_at, idx_wallet_tx_user_id, idx_wallet_tx_type,
 idx_platform_revenue_type, idx_escrow_status, idx_escrow_job_id,
@@ -226,11 +225,35 @@ pending
 ---
 
 ## Authentication
+
+### Web (Netlify)
 - Email/password with email confirmation required
-- Google OAuth via Supabase
+- Google OAuth via Supabase PKCE flow
+- `detectSessionInUrl: false` — code exchange handled manually in useAuth.tsx
+- Old session cleared from localStorage when `?code=` detected (prevents initializePromise hang)
+- `exchangeCodeForSession(code)` result handled directly via `.then()` — no reliance on SIGNED_IN event
+- INITIAL_SESSION skipped when code exchange is pending
+- `oauth-intended-role` set in localStorage before Google redirect (customer or worker)
 - Portal enforcement: workers cannot login through customer portal
 - Admin can login through any portal (exception added)
-- signOut uses scope:'global' + window.location.href='/login' (fixes first-click logout bug)
+- signOut uses scope:'global' + window.location.href='/login'
+
+### APK (Capacitor)
+- `flowType: 'pkce'` everywhere
+- Deep link scheme: `karigargo://` (dots not allowed in Android schemes)
+- `@capacitor/app` + `@capacitor/browser` plugins for deep links
+- `setupNativeAuthListener()` called in main.tsx before React mounts
+- PKCE verifier backed up to `karigargo-pkce-backup` key before `Browser.open()` — Supabase SDK deletes the verifier during INITIAL_SESSION when app resumes
+- Verifier restored in `appUrlOpen` handler before `exchangeCodeForSession`
+- AndroidManifest.xml has intent-filter for `karigargo` scheme
+
+### Key Auth Files
+- `src/lib/supabase.ts` — client config, old session clearing on callback
+- `src/lib/nativeAuth.ts` — APK deep link handling, verifier backup/restore
+- `src/lib/authRedirect.ts` — always uses `window.location.origin` for redirects
+- `src/lib/authRole.ts` — signOutIfEmailPasswordUnconfirmed check
+- `src/hooks/useAuth.tsx` — AuthProvider, fetchUserProfile, onAuthStateChange
+- `src/main.tsx` — setupNativeAuthListener before React mounts
 
 ### To make someone admin:
 ```sql
@@ -285,16 +308,15 @@ where email = 'email@example.com';
 
 ### To rebuild APK after code changes:
 ```bash
-npm run build
-npx cap sync android
-# Android Studio → Build → Build APK(s)
+git stash && git pull && npm run build && npx cap sync android
+# Android Studio → Clean Project → Build APK(s)
 ```
 
-### APK Known Issue
-Google Sign-In requires adding to Supabase redirect URLs:
-- com.karigargo.app://login
-- com.karigargo.app://**
-And to Google Cloud Console OAuth credentials as Android client with SHA-1 fingerprint.
+### APK Deep Link Setup
+- Supabase redirect URL: `karigargo://login`
+- AndroidManifest.xml: intent-filter for `karigargo` scheme
+- capacitor.config.ts: `androidScheme: 'https'`
+- Google Cloud Console: Only `https://epekjmfmbgwfonjyhklm.supabase.co/auth/v1/callback` as redirect URI
 
 ---
 
@@ -309,7 +331,7 @@ And to Google Cloud Console OAuth credentials as Android client with SHA-1 finge
 | 5 | Budget field showing | Removed from form, validation, DB insert |
 | 6 | Admin login looping | Added admin exception to portal check |
 | 7 | 404 on page refresh | netlify.toml with SPA redirect |
-| 8 | Google login to Vercel | Fixed Site URL in Supabase Auth |
+| 8 | Google login redirect wrong site | Fixed Site URL in Supabase Auth |
 | 9 | Logout unreliable | scope:global + hard redirect |
 | 10 | 20rs not deducted | acceptWorkCost calls fn_lock_work_escrow |
 | 11 | Job active after inspection-only | Changed to completed status |
@@ -326,61 +348,109 @@ And to Google Cloud Console OAuth credentials as Android client with SHA-1 finge
 | 22 | Wallet screens missing | Created customer/Wallet.tsx + worker/Wallet.tsx |
 | 23 | No withdraw for worker | WithdrawSection component in worker wallet |
 | 24 | Admin dashboard slow | 14 DB indexes added |
+| 25 | Web Google login stuck loading | detectSessionInUrl:false + manual exchangeCodeForSession + .then() handler |
+| 26 | APK Google login stuck on login | PKCE verifier backup/restore (SDK deletes during INITIAL_SESSION) |
+| 27 | Orphaned Google users | Manual DB inserts + wallet creation |
+| 28 | oauth-intended-role missing on web | Added to Login.tsx handleGoogle |
+| 29 | initializePromise hang on callback | Clear old session from localStorage when ?code= detected |
+| 30 | Duplicate phone error | User-friendly error message for unique constraint violation |
+| 31 | ReviewWorker/ReviewCustomer no error handling | Added try/catch + finally blocks |
+| 32 | ActiveJob status transitions unhandled | Added error checks to all supabase operations |
+| 33 | Worker submitWorkCost unhandled | Added error return on failure |
+| 34 | Console.logs in production | Removed all debug console.logs |
+| 35 | Unused loadingRef | Removed unused ref and import |
+| 36 | Vercel removed | Deleted vercel.json, .vercel directory, all references |
 
 ---
 
-## Current Data
-- tayyababar2001@gmail.com — customer, balance 2000rs
-- tayyabbabar2001@gmail.com — admin, approved
-- Two workers registered with 100rs bonus each
+## Key Learnings & Principles
+
+- **Supabase SDK `initializePromise` blocks everything**: `setSession()`, `getSession()`, `exchangeCodeForSession()` all await it. If an old expired session is in localStorage, the refresh attempt can hang indefinitely. Always clear old session before code exchange.
+- **`detectSessionInUrl: true` runs exchange inside `initializePromise`**: If the exchange hangs, INITIAL_SESSION never fires and the app shows loading forever. Safer to use `detectSessionInUrl: false` and handle exchange manually.
+- **PKCE verifier deleted by SDK during INITIAL_SESSION**: On Capacitor, when app resumes after Chrome, `_removeSession()` is called which deletes the code verifier. Must backup to a separate key before `Browser.open()`.
+- **Nested Supabase joins fail silently under RLS**: `select('*, worker_profiles(*)')` style joins consistently fail even when policies appear correct. Use separate queries.
+- **Deep link scheme constraint**: Android does not allow dots in custom URI schemes — use `karigargo://` not `com.karigargo.app://`
+- **OAuth redirect URI split**: Google Cloud Console = only `https://epekjmfmbgwfonjyhklm.supabase.co/auth/v1/callback`; `karigargo://login` goes only in Supabase Dashboard redirect URLs
+- **Auth config changes**: Site URL and redirect URLs cannot be changed via SQL — must be done in Supabase Dashboard UI under Authentication → URL Configuration
+- **Fixes should be targeted and minimal**, not full rewrites
+- **`window.location.origin`** for all redirect URLs — works on any domain (Netlify, Vercel, localhost)
+
+---
+
+## Approach & Patterns
+
+- **Session startup**: Claude reads `KARIGARGO_COMPLETE_SUMMARY.md` at the start of each session
+- **Every code change**: Build to verify zero TypeScript errors, then push to GitHub; Netlify auto-deploys on push to `main`
+- **Supabase MCP tools**: `Supabase:apply_migration` for schema/function changes; `Supabase:execute_sql` for data queries and one-time fixes
+- **Bug fixing philosophy**: Targeted, minimal changes preferred over rewrites
 
 ---
 
 ## File Structure
 ```
 src/
-  App.tsx                    
-  router.tsx                 AppShell wraps customer/worker, admin separate
-  hooks/useAuth.tsx          auth, approval, global signOut
-  layouts/AdminLayout.tsx    dark sidebar, full-width
+  App.tsx
+  main.tsx                     setupNativeAuthListener before React mounts
+  router.tsx                   AppShell wraps customer/worker, admin separate
+  hooks/useAuth.tsx            auth, approval, global signOut, code exchange
+  lib/
+    supabase.ts                client config, old session clearing on callback
+    nativeAuth.ts              APK deep link, verifier backup/restore
+    authRedirect.ts            window.location.origin based redirects
+    authRole.ts                email confirmation check
+    i18n.tsx                   internationalization
+  layouts/AdminLayout.tsx      dark sidebar, full-width
   pages/
-    auth/                    Login, WorkerLogin, Signups, CompleteProfiles
+    auth/                      Login, WorkerLogin, Signups, CompleteProfiles
     customer/
-      Home.tsx               categories, jobs, bottom nav
-      PostJob.tsx            voice required, photo required, no budget
-      JobDetail.tsx          bids, accept bid, fn_lock_inspection_escrow
-      ActiveJob.tsx          full job flow customer-side
-      Wallet.tsx             balance, transactions, top-up coming soon
+      Home.tsx                 categories, jobs, bottom nav
+      PostJob.tsx              voice required, photo required, no budget
+      JobDetail.tsx            bids, accept bid, fn_lock_inspection_escrow
+      ActiveJob.tsx            full job flow customer-side
+      Wallet.tsx               balance, transactions, top-up coming soon
     worker/
-      Dashboard.tsx          job feed, approval banner
-      ActiveJob.tsx          location auto, work cost on proceedRequested
-      JobBid.tsx             wallet + approval checks
-      Wallet.tsx             100rs bonus, withdraw, transactions
-      PendingApproval.tsx    blocks unapproved workers
+      Dashboard.tsx            job feed, approval banner
+      ActiveJob.tsx            location auto, work cost on proceedRequested
+      JobBid.tsx               wallet + approval checks
+      Wallet.tsx               100rs bonus, withdraw, transactions
+      PendingApproval.tsx      blocks unapproved workers
     admin/
-      Dashboard.tsx          realtime stats, alerts
-      Workers.tsx            approve/reject with CNIC
-      WorkerDetail.tsx       full profile, lightbox
-      Users.tsx              customers, suspend
-      Jobs.tsx               all jobs, filters
-      JobDetail.tsx          escrow, chat, notes, cancel
-      Disputes.tsx           open/resolved
-      DisputeDetail.tsx      resolve (continue/partial/cancel)
-      Wallets.tsx            wallets, transactions, escrow
-      Revenue.tsx            platform_revenue, bar chart
-      Reports.tsx            flagged users
-  types/index.ts             all types + financial constants
-  index.css                  design system, responsive
-android/                     Capacitor Android project
+      Dashboard.tsx            realtime stats, alerts
+      Workers.tsx              approve/reject with CNIC
+      WorkerDetail.tsx         full profile, lightbox
+      Users.tsx                customers, suspend
+      Jobs.tsx                 all jobs, filters
+      JobDetail.tsx            escrow, chat, notes, cancel
+      Disputes.tsx             open/resolved
+      DisputeDetail.tsx        resolve (continue/partial/cancel)
+      Wallets.tsx              wallets, transactions, escrow
+      Revenue.tsx              platform_revenue, bar chart
+      Reports.tsx              flagged users
+  types/index.ts               all types + financial constants
+  index.css                    design system, responsive
+  components/
+    ChatWindow.tsx             real-time messaging with media
+    NotificationBell.tsx       unread count badge
+android/                       Capacitor Android project
 public/
-  manifest.json              PWA manifest
-  sw.js                      service worker
-  icon-192.png               
-  icon-512.png               
-  _redirects                 Netlify SPA redirect
-netlify.toml                 build config + redirects
-capacitor.config.ts          Android config (com.karigargo.app)
+  manifest.json                PWA manifest
+  sw.js                        service worker
+  icon-192.png
+  icon-512.png
+  logo.png                     KarigarGo logo
+  _redirects                   Netlify SPA redirect
+  favicon.png
+netlify.toml                   build config + redirects
+capacitor.config.ts            Android config (com.karigargo.app)
 ```
+
+---
+
+## GitHub Push Command
+```bash
+git push https://karigargoapp-web:TOKEN@github.com/karigargoapp-web/karigaraccnetlify.git main
+```
+Note: Never commit credential strings (GitHub push protection will block). Local branch is `master`, remote is `main` — use `master:main` if needed.
 
 ---
 
