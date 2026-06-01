@@ -8,6 +8,14 @@ export const NATIVE_REDIRECT = 'karigargo://login'
 const VERIFIER_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token-code-verifier'
 const VERIFIER_BACKUP = 'karigargo-pkce-backup'
 
+// Callback registered by useAuth so nativeAuth can trigger profile fetch + nav after code exchange
+type SessionReadyCallback = () => Promise<void>
+let _sessionReadyCallback: SessionReadyCallback | null = null
+
+export function registerSessionReadyCallback(cb: SessionReadyCallback) {
+  _sessionReadyCallback = cb
+}
+
 export function setupNativeAuthListener() {
   if (!Capacitor.isNativePlatform()) return
 
@@ -31,7 +39,12 @@ export function setupNativeAuthListener() {
         const code = params.get('code')
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) {
+            toast.error('Sign-in failed: ' + error.message)
+            return
+          }
+          // Trigger auth context to fetch profile and navigate
+          if (_sessionReadyCallback) await _sessionReadyCallback()
           return
         }
       }
@@ -47,7 +60,11 @@ export function setupNativeAuthListener() {
             access_token: accessToken,
             refresh_token: refreshToken,
           })
-          if (error) toast.error('Sign-in failed: ' + error.message)
+          if (error) {
+            toast.error('Sign-in failed: ' + error.message)
+            return
+          }
+          if (_sessionReadyCallback) await _sessionReadyCallback()
         }
       }
     } catch (e: any) {
@@ -71,7 +88,6 @@ export async function signInWithGoogleNative(intendedRole: 'customer' | 'worker'
   if (!data.url) throw new Error('No OAuth URL returned')
 
   // Backup the code_verifier — Supabase deletes it during INITIAL_SESSION
-  // when the app resumes and React re-mounts
   const verifier = localStorage.getItem(VERIFIER_KEY)
   if (verifier) {
     localStorage.setItem(VERIFIER_BACKUP, verifier)

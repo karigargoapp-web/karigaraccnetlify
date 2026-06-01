@@ -1,5 +1,8 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Capacitor } from '@capacitor/core'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
+import { registerSessionReadyCallback } from '../lib/nativeAuth'
 import { supabase } from '../lib/supabase'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
@@ -16,12 +19,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function roleHome(role: string, approvalStatus?: string) {
+  if (role === 'customer') return '/customer/home'
+  if (role === 'worker') return approvalStatus === 'approved' ? '/worker/dashboard' : '/worker/pending-approval'
+  if (role === 'admin') return '/admin'
+  return '/login'
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser]       = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const nav = useNavigate()
 
-  const fetchUserProfile = async (supaUser: SupaUser): Promise<AppUser | null> => {
+  const fetchAndSetUser = useCallback(async (supaUser: SupaUser): Promise<AppUser | null> => {
     try {
       const kicked = await signOutIfEmailPasswordUnconfirmed(supaUser)
       if (kicked) { setSession(null); setUser(null); return null }
@@ -49,17 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (fetchErr) throw fetchErr
 
       if (data) {
-        const intendedPortal = sessionStorage.getItem('auth-intended-portal')
-        if (intendedPortal) {
-          sessionStorage.removeItem('auth-intended-portal')
-          if (data.role !== intendedPortal && data.role !== 'admin') {
-            await supabase.auth.signOut({ scope: 'local' })
-            sessionStorage.setItem('auth-portal-error',
-              `This account is registered as a ${data.role}. Please sign in on the ${data.role === 'worker' ? 'worker' : 'customer'} login page.`)
-            window.location.href = data.role === 'worker' ? '/login/worker' : '/login'
-            return null
-          }
-        }
         const updates: Record<string, unknown> = {}
         if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) { updates.verified = true; data.verified = true }
         if (!data.profile_photo_url && photo) { updates.profile_photo_url = photo; data.profile_photo_url = photo }
@@ -98,23 +98,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       return null
     }
-  }
+  }, [])
+
+  // Called by nativeAuth after Google OAuth code exchange on APK
+  const handleNativeSessionReady = useCallback(async () => {
+    const { data: { session: sess } } = await supabase.auth.getSession()
+    if (!sess?.user) return
+    setSession(sess)
+    const appUser = await fetchAndSetUser(sess.user)
+    setLoading(false)
+    if (appUser) {
+      const intendedPortal = sessionStorage.getItem('auth-intended-portal')
+      sessionStorage.removeItem('auth-intended-portal')
+      if (appUser.role !== 'customer' && appUser.role !== 'admin' && intendedPortal === 'customer') {
+        toast_error('This account is a worker account. Please use the worker login.')
+        await supabase.auth.signOut({ scope: 'local' })
+        setUser(null); setSession(null)
+        nav('/login', { replace: true })
+        return
+      }
+      if (!appUser.profile_complete) {
+        nav(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
+      } else {
+        nav(roleHome(appUser.role, appUser.approval_status), { replace: true })
+      }
+    }
+  }, [fetchAndSetUser, nav])
+
+  useEffect(() => {
+    // Register callback for native APK Google login
+    if (Capacitor.isNativePlatform()) {
+      registerSessionReadyCallback(handleNativeSessionReady)
+    }
+  }, [handleNativeSessionReady])
 
   useEffect(() => {
     let mounted = true
     const code = new URLSearchParams(window.location.search).get('code')
 
-    // onAuthStateChange is ONLY used for:
-    // 1. INITIAL_SESSION — restoring session on page load/refresh
-    // 2. OAuth code exchange (Google login)
-    // 3. SIGNED_OUT — clearing state
-    // Email/password login navigation is handled directly in Login.tsx via setUserDirectly
+    // onAuthStateChange handles:
+    // 1. INITIAL_SESSION — session restore on page load/refresh
+    // 2. OAuth code exchange on web (Google login)
+    // 3. SIGNED_OUT — clear state
+    // Email/password login: handled directly in Login.tsx via setUserDirectly (no race)
+    // APK Google login: handled via registerSessionReadyCallback in nativeAuth.ts
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
-      // Skip INITIAL_SESSION when OAuth code exchange is pending
       if (event === 'INITIAL_SESSION' && code) return
-      // Skip SIGNED_IN — handled directly by login pages to avoid async callback race
+      // Skip SIGNED_IN on web — handled by login pages directly
+      // Skip SIGNED_IN on native — handled by handleNativeSessionReady callback
       if (event === 'SIGNED_IN') return
 
       if (event === 'SIGNED_OUT') {
@@ -124,17 +157,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      // INITIAL_SESSION only
+      // INITIAL_SESSION only — restore persisted session on page load
       setSession(sess)
       if (sess?.user) {
-        await fetchUserProfile(sess.user)
+        await fetchAndSetUser(sess.user)
       } else {
         setUser(null)
       }
       if (mounted) setLoading(false)
     })
 
-    // OAuth code exchange — Google login callback
+    // Web OAuth code exchange (Google login on browser/web)
     if (code) {
       window.history.replaceState({}, '', window.location.pathname)
       supabase.auth.exchangeCodeForSession(code)
@@ -146,8 +179,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return
           }
           setSession(data.session)
-          await fetchUserProfile(data.session.user)
-          if (mounted) setLoading(false)
+          const appUser = await fetchAndSetUser(data.session.user)
+          if (mounted) {
+            setLoading(false)
+            if (appUser) {
+              if (!appUser.profile_complete) {
+                nav(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
+              } else {
+                nav(roleHome(appUser.role, appUser.approval_status), { replace: true })
+              }
+            }
+          }
         })
         .catch(() => {
           if (mounted) { setUser(null); setLoading(false) }
@@ -155,9 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return () => { mounted = false; subscription.unsubscribe() }
-  }, [])
+  }, [fetchAndSetUser, nav])
 
-  // Called directly by login pages after successful signInWithPassword + DB fetch
+  // Called directly by Login.tsx / WorkerLogin.tsx after email/password sign-in
   // Bypasses onAuthStateChange entirely — no async race condition
   const setUserDirectly = (appUser: AppUser, sess: Session) => {
     setSession(sess)
@@ -177,7 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshUser = async () => {
-    if (session?.user) await fetchUserProfile(session.user)
+    const { data: { session: sess } } = await supabase.auth.getSession()
+    if (sess?.user) await fetchAndSetUser(sess.user)
   }
 
   return (
@@ -185,6 +228,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
+}
+
+// Lightweight toast for use inside auth (avoids circular imports)
+function toast_error(msg: string) {
+  try {
+    const t = (window as any).__toast_error
+    if (t) t(msg)
+  } catch {}
 }
 
 export function useAuth() {
