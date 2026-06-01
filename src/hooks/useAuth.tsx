@@ -1,11 +1,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react'
 import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
-
-const VERIFIER_KEY  = 'sb-epekjmfmbgwfonjyhklm-auth-token-code-verifier'
-const SESSION_KEY   = 'sb-epekjmfmbgwfonjyhklm-auth-token'
 
 interface AuthContextType {
   session: Session | null
@@ -18,38 +15,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Run BEFORE React mounts – if ?code= in URL, exchange it and redirect clean.
-// This prevents INITIAL_SESSION firing null while the exchange is in-flight.
-;(async () => {
-  if (typeof window === 'undefined') return
-  const code = new URLSearchParams(window.location.search).get('code')
-  if (!code) return
-
-  const raw     = localStorage.getItem(VERIFIER_KEY) || localStorage.getItem('karigargo-pkce-backup') || ''
-  const verifier = raw.split('/')[0]
-  localStorage.removeItem(VERIFIER_KEY)
-  localStorage.removeItem('karigargo-pkce-backup')
-  if (!verifier) return
-
-  try {
-    const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
-      method : 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body   : JSON.stringify({ auth_code: code, code_verifier: verifier }),
-    })
-    const data = await resp.json()
-    if (data.access_token && data.refresh_token) {
-      // Write directly to localStorage – no SDK call, no blocking
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data))
-      // Replace URL without query param and reload so app boots with session ready
-      window.location.replace(window.location.pathname)
-    }
-  } catch {}
-})()
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [user, setUser]       = useState<AppUser | null>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchUserProfile = async (supaUser: SupaUser) => {
