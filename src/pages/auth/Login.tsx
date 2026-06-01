@@ -43,9 +43,8 @@ export default function Login() {
     if (emailErr) return toast.error(emailErr)
     setLoading(true)
     setShowResend(false)
-    // Tag the intended portal so fetchUserProfile enforces it (no race condition)
     sessionStorage.setItem('auth-intended-portal', 'customer')
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
       sessionStorage.removeItem('auth-intended-portal')
       setLoading(false)
@@ -67,7 +66,25 @@ export default function Login() {
       setShowResend(true)
       return toast.error(emailCheck.message)
     }
-    // Role is enforced inside fetchUserProfile — no assertPortalRole here to avoid race
+
+    if (signInData.user) {
+      const { data: userData } = await supabase.from('users').select('*').eq('id', signInData.user.id).maybeSingle()
+      if (userData) {
+        sessionStorage.removeItem('auth-intended-portal')
+        if (userData.role !== 'customer' && userData.role !== 'admin') {
+          await supabase.auth.signOut({ scope: 'local' })
+          setLoading(false)
+          toast.error('This account is registered as a worker. Please sign in on the worker login page.')
+          return
+        }
+        if (!userData.profile_complete) {
+          nav('/complete-profile/customer', { replace: true })
+          return
+        }
+        nav(userData.role === 'admin' ? '/admin' : '/customer/home', { replace: true })
+        return
+      }
+    }
     setLoading(false)
   }
 
