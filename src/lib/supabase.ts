@@ -6,6 +6,13 @@ const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 export const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || FALLBACK_URL
 export const SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || FALLBACK_ANON_KEY
 
+// When OAuth callback lands with ?code=, clear old session so
+// initializePromise completes instantly (no refresh hang)
+// Preserve the verifier key — we need it for code exchange
+if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('code')) {
+  localStorage.removeItem('sb-epekjmfmbgwfonjyhklm-auth-token')
+}
+
 export const supabase = createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY,

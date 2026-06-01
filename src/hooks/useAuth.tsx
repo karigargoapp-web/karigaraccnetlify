@@ -5,7 +5,6 @@ import type { User as AppUser, UserRole } from '../types'
 import type { User as SupaUser, Session } from '@supabase/supabase-js'
 
 const VERIFIER_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token-code-verifier'
-const SESSION_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token'
 
 interface AuthContextType {
   session: Session | null
@@ -17,41 +16,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// Exchange OAuth code via REST API - completely bypasses SDK
-async function exchangeCodeFromUrl(): Promise<Session | null> {
-  const params = new URLSearchParams(window.location.search)
-  const code = params.get('code')
-  if (!code) return null
-
-  // Clean URL immediately
-  window.history.replaceState({}, '', window.location.pathname)
-
-  // Get verifier
-  const raw = localStorage.getItem(VERIFIER_KEY) || localStorage.getItem('karigargo-pkce-backup') || ''
-  const verifier = raw.split('/')[0]
-  localStorage.removeItem(VERIFIER_KEY)
-  localStorage.removeItem('karigargo-pkce-backup')
-  if (!verifier) return null
-
-  try {
-    const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
-    })
-    const data = await resp.json()
-    if (data.access_token && data.refresh_token) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(data))
-      return data as Session
-    }
-  } catch {}
-  return null
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -65,9 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const isGoogleUser =
         supaUser.app_metadata?.provider === 'google' ||
-        supaUser.identities?.some(i => i.provider === 'google')
+        supaUser.identities?.some((i: any) => i.provider === 'google')
 
-      const googleIdentity = supaUser.identities?.find(i => i.provider === 'google')
+      const googleIdentity = supaUser.identities?.find((i: any) => i.provider === 'google')
       const photo =
         supaUser.user_metadata?.avatar_url ||
         supaUser.user_metadata?.picture ||
@@ -139,42 +103,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true
 
     const init = async () => {
-      // 1. Exchange code if present (pure REST, no SDK blocking)
-      const exchangedSession = await exchangeCodeFromUrl()
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
 
-      // 2. Get user from exchanged session OR existing localStorage session
-      let supaUser: SupaUser | null = null
-      let currentSession: Session | null = null
+      if (code) {
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname)
 
-      if (exchangedSession?.user) {
-        supaUser = exchangedSession.user
-        currentSession = exchangedSession
-      } else {
-        // Try SDK getSession with timeout
-        try {
-          const result = await Promise.race([
-            supabase.auth.getSession(),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000)),
-          ])
-          currentSession = result.data.session
-          supaUser = currentSession?.user ?? null
-        } catch {
-          // timeout - read raw from localStorage
+        // Get verifier
+        const raw = localStorage.getItem(VERIFIER_KEY) || localStorage.getItem('karigargo-pkce-backup') || ''
+        const verifier = raw.split('/')[0]
+        localStorage.removeItem(VERIFIER_KEY)
+        localStorage.removeItem('karigargo-pkce-backup')
+
+        if (verifier) {
           try {
-            const raw = localStorage.getItem(SESSION_KEY)
-            if (raw) {
-              const parsed = JSON.parse(raw)
-              if (parsed?.user) supaUser = parsed.user
-              if (parsed?.access_token) currentSession = parsed
+            // Exchange via REST - no SDK blocking
+            const resp = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              },
+              body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+            })
+            const tokens = await resp.json()
+            if (tokens.access_token && tokens.refresh_token) {
+              // Set session in SDK so DB queries are authenticated
+              // initializePromise already completed (we cleared old session in supabase.ts)
+              await supabase.auth.setSession({
+                access_token: tokens.access_token,
+                refresh_token: tokens.refresh_token,
+              })
             }
           } catch {}
         }
       }
 
+      // Get session (SDK internal state, set above)
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
       if (!mounted) return
+
       setSession(currentSession)
-      if (supaUser) {
-        await fetchUserProfile(supaUser)
+      if (currentSession?.user) {
+        await fetchUserProfile(currentSession.user)
       } else {
         setUser(null)
       }
