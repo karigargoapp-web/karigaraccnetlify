@@ -195,7 +195,7 @@ The app supports **English** and **Urdu** with RTL layout for Urdu.
 ### Vercel (Recommended)
 
 1. Push code to GitHub
-2. Connect repository to [Vercel](https://vercel.com)
+2. Connect repository to [Netlify](https://netlify.com)
 3. Add environment variables in Vercel dashboard
 4. Deploy!
 
