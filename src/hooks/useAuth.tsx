@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [user, setUser] = useState<AppUser | null>(null)
+  const [user, setUser]       = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchUserProfile = async (supaUser: SupaUser) => {
@@ -100,9 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    // onAuthStateChange handles both INITIAL_SESSION (with session after code exchange)
+    // and subsequent SIGNED_IN / SIGNED_OUT events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
+
       setSession(session)
       if (session?.user) {
         await fetchUserProfile(session.user)
