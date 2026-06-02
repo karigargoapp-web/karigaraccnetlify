@@ -126,10 +126,15 @@ export default function CustomerActiveJob() {
   const markComplete = async (rateAfter: boolean) => {
     if (confirming) return
     setConfirming(true)
-    const { error } = await supabase.rpc('fn_complete_job', { p_job_id: jobId })
+    const discount = useRewardForWork ? Math.min(rewardPoints, total) : 0
+    const { error } = await supabase.rpc('fn_complete_job', {
+      p_job_id: jobId,
+      p_reward_discount: discount,
+    })
     if (error) { setConfirming(false); return toast.error(error.message) }
     setShowConfirm(false)
-    toast.success('Job completed!')
+    if (discount > 0) toast.success(`Job completed! ₨${discount} reward discount applied.`)
+    else toast.success('Job completed!')
     if (rateAfter) nav(`/customer/review/${jobId}`)
     else nav('/customer/home')
   }
@@ -357,7 +362,7 @@ export default function CustomerActiveJob() {
             <p className="text-sm text-text-secondary mb-4">Review the payment breakdown before confirming.</p>
 
             {/* Payment breakdown */}
-            <div className="bg-surface rounded-xl p-4 mb-4 space-y-2">
+            <div className="bg-surface rounded-xl p-4 mb-4 space-y-2.5">
               {inspectionFee > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Inspection Fee</span>
@@ -370,19 +375,33 @@ export default function CustomerActiveJob() {
                   <span className="font-medium">₨{workCost}</span>
                 </div>
               )}
+              {useRewardForWork && rewardPoints > 0 && (
+                <div className="flex justify-between text-sm text-green-700">
+                  <span>Reward Discount</span>
+                  <span className="font-medium">− ₨{Math.min(rewardPoints, total)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">
-                <span>You Paid</span>
-                <span className="text-primary">₨{total}</span>
+                <span>You Pay</span>
+                <span className="text-primary text-base">₨{useRewardForWork && rewardPoints > 0 ? total - Math.min(rewardPoints, total) : total}</span>
               </div>
-              <div className="flex justify-between text-sm text-red-500">
-                <span>Platform Commission (10%)</span>
-                <span>− ₨{Math.round(total * 0.1)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-semibold">
-                <span className="text-text-secondary">Worker Receives</span>
-                <span className="text-green-600">₨{total - Math.round(total * 0.1)}</span>
-              </div>
+              {useRewardForWork && rewardPoints > 0 && (
+                <p className="text-[11px] text-green-700 text-center">KarigarGo covers ₨{Math.min(rewardPoints, total)}</p>
+              )}
             </div>
+
+            {/* Reward toggle */}
+            {rewardPoints > 0 && (
+              <button
+                onClick={() => setUseRewardForWork(v => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition mb-3 ${useRewardForWork ? 'bg-green-50 border-green-300 text-green-700' : 'bg-surface border-border text-text-secondary'}`}
+              >
+                <span className="flex items-center gap-2"><IoGift size={16} /> Use {Math.min(rewardPoints, total)} reward points as discount</span>
+                <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardForWork ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                  {useRewardForWork && <span className="text-white text-[10px]">✓</span>}
+                </span>
+              </button>
+            )}
 
             {/* Action buttons */}
             <div className="space-y-2">

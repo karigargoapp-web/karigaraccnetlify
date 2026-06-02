@@ -3,32 +3,35 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { IoArrowBack, IoShareSocial, IoHome, IoCard, IoDownload, IoStar, IoCheckmarkCircle } from 'react-icons/io5'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 import type { Job, Review } from '../../types'
 
 export default function CustomerReceipt() {
   const nav = useNavigate()
+  const { user } = useAuth()
   const { jobId } = useParams()
   const [job, setJob] = useState<Job | null>(null)
   const [customerReview, setCustomerReview] = useState<Review | null>(null)
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!jobId) return
+    if (!jobId || !user) return
     Promise.all([
       supabase.from('jobs').select('*').eq('id', jobId).single(),
       supabase.from('reviews').select('*').eq('job_id', jobId).eq('direction', 'customer_to_worker').maybeSingle(),
-    ]).then(([jobRes, reviewRes]) => {
+      supabase.from('wallets').select('balance').eq('user_id', user.id).single(),
+    ]).then(([jobRes, reviewRes, walletRes]) => {
       if (jobRes.data) setJob(jobRes.data as Job)
       if (reviewRes.data) setCustomerReview(reviewRes.data as Review)
+      if (walletRes.data) setWalletBalance(walletRes.data.balance)
     })
-  }, [jobId])
+  }, [jobId, user])
 
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Loading...</div>
 
   const inspectionFee = job.inspection_charges || 0
   const workCost = job.work_cost || 0
   const total = inspectionFee + workCost
-  const platformFee = job.platform_fee || Math.round(total * 0.1)
-  const workerReceives = total - platformFee
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -66,7 +69,6 @@ export default function CustomerReceipt() {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(50, 50, 50)
     }
-
     const drawRow = (label: string, value: string, bold = false) => {
       doc.setFontSize(9)
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
@@ -76,7 +78,6 @@ export default function CustomerReceipt() {
       doc.text(value, pageW - margin - 2, y, { align: 'right' })
       y += 7
     }
-
     const drawDivider = () => {
       doc.setDrawColor(220, 220, 220)
       doc.line(margin, y, pageW - margin, y)
@@ -92,13 +93,10 @@ export default function CustomerReceipt() {
     y += 3
 
     drawSection('Payment Breakdown')
-    drawRow('Inspection Charges', `PKR ${inspectionFee.toLocaleString()}`)
+    if (inspectionFee > 0) drawRow('Inspection Charges', `PKR ${inspectionFee.toLocaleString()}`)
     if (workCost > 0) drawRow('Work Cost', `PKR ${workCost.toLocaleString()}`)
     drawDivider()
-    drawRow('Customer Paid', `PKR ${total.toLocaleString()}`, true)
-    drawRow('Platform Commission (10%)', `- PKR ${platformFee.toLocaleString()}`)
-    drawRow('Worker Receives', `PKR ${workerReceives.toLocaleString()}`, true)
-    y += 3
+    drawRow('Total Paid', `PKR ${total.toLocaleString()}`, true)
     drawRow('Payment Method', 'KarigarGo Wallet')
     y += 10
 
@@ -133,7 +131,7 @@ export default function CustomerReceipt() {
           <IoCheckmarkCircle size={28} className="text-green-500 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-green-800">Job Completed!</p>
-            <p className="text-xs text-green-700">Payment has been processed from your wallet.</p>
+            <p className="text-xs text-green-700">Payment processed from your wallet.</p>
           </div>
         </div>
 
@@ -157,10 +155,12 @@ export default function CustomerReceipt() {
           </div>
 
           <div className="border-t border-border pt-4 space-y-2.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-text-secondary">Inspection Charges</span>
-              <span className="text-text-primary">₨{inspectionFee.toLocaleString()}</span>
-            </div>
+            {inspectionFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Inspection Charges</span>
+                <span className="text-text-primary">₨{inspectionFee.toLocaleString()}</span>
+              </div>
+            )}
             {workCost > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-text-secondary">Work Cost</span>
@@ -168,32 +168,32 @@ export default function CustomerReceipt() {
               </div>
             )}
             <div className="flex justify-between text-sm font-semibold border-t border-border pt-2.5">
-              <span>Customer Paid</span>
+              <span>Total Paid</span>
               <span className="text-primary text-base">₨{total.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm text-red-500">
-              <span>Platform Commission (10%)</span>
-              <span>− ₨{platformFee.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-sm font-semibold">
-              <span className="text-text-secondary">Worker Receives</span>
-              <span className="text-green-600">₨{workerReceives.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Payment method */}
-        <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-            <IoCard size={20} className="text-primary" />
+        {/* Wallet info */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+              <IoCard size={20} className="text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-text-primary">KarigarGo Wallet</p>
+              <p className="text-xs text-text-muted">Paid from wallet balance</p>
+            </div>
+            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-white text-[10px] font-bold">✓</span>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-text-primary">KarigarGo Wallet</p>
-            <p className="text-xs text-text-muted">Paid from wallet balance</p>
-          </div>
-          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-white text-[10px] font-bold">✓</span>
-          </div>
+          {walletBalance !== null && (
+            <div className="bg-surface rounded-xl px-4 py-2.5 flex justify-between text-sm">
+              <span className="text-text-secondary">Remaining Balance</span>
+              <span className="font-semibold text-primary">₨{walletBalance.toLocaleString()}</span>
+            </div>
+          )}
         </div>
 
         {/* CTAs */}
@@ -207,7 +207,7 @@ export default function CustomerReceipt() {
         )}
         {customerReview && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
-            <p className="text-sm font-medium text-green-800">⭐ You've already rated this worker</p>
+            <p className="text-sm font-medium text-green-800">⭐ You have already rated this worker</p>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoLocation, IoCalendar, IoPerson, IoStar, IoDownload, IoCash, IoCheckmarkCircle } from 'react-icons/io5'
+import { IoArrowBack, IoLocation, IoCalendar, IoPerson, IoStar, IoDownload, IoCheckmarkCircle } from 'react-icons/io5'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../../lib/supabase'
 import type { Job, Review } from '../../types'
@@ -35,8 +35,6 @@ export default function CustomerJobSummary() {
   const inspectionFee = job.inspection_charges || 0
   const workCost = job.work_cost || 0
   const total = inspectionFee + workCost
-  const platformFee = job.platform_fee || Math.round(total * 0.1)
-  const grandTotal = total + platformFee
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -91,12 +89,10 @@ export default function CustomerJobSummary() {
     sec('Payment Breakdown')
     row('Inspection Charges', `PKR ${inspectionFee.toLocaleString()}`)
     if (workCost > 0) row('Work Cost', `PKR ${workCost.toLocaleString()}`)
-    row('Subtotal', `PKR ${total.toLocaleString()}`)
-    row('Platform Fee (10%)', `PKR ${platformFee.toLocaleString()}`)
     doc.setDrawColor(220, 220, 220)
     doc.line(margin, y, pageW - margin, y)
     y += 5
-    row('Total Amount', `PKR ${grandTotal.toLocaleString()}`, true)
+    row('Total Paid', `PKR ${total.toLocaleString()}`, true)
     y += 8
 
     if (customerReview) {
@@ -186,13 +182,9 @@ export default function CustomerJobSummary() {
                 <span className="font-medium">PKR {workCost.toLocaleString()}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-text-muted">Platform Fee (10%)</span>
-              <span className="font-medium text-red-500">PKR {platformFee.toLocaleString()}</span>
-            </div>
             <div className="flex justify-between border-t border-border pt-2">
-              <span className="font-semibold text-text-primary">Total Amount</span>
-              <span className="font-bold text-primary text-sm">PKR {grandTotal.toLocaleString()}</span>
+              <span className="font-semibold text-text-primary">Total Paid</span>
+              <span className="font-bold text-primary text-sm">PKR {total.toLocaleString()}</span>
             </div>
           </div>
         </div>

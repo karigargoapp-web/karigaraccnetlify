@@ -30,7 +30,7 @@ export default function CustomerWallet() {
     inspection_payment: 'Inspection Fee Paid',
     escrow_lock: 'Job Amount Locked',
     escrow_release: 'Payment Received',
-    commission: 'Platform Commission',
+    commission: 'Service Fee',
     reward: 'Reward Points Earned',
     reward_redemption: 'Reward Points Used',
     bidding_fee: 'Bidding Fee',
