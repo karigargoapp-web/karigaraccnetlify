@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoShareSocial, IoHome, IoCash, IoCard, IoDownload, IoStar } from 'react-icons/io5'
+import { IoArrowBack, IoShareSocial, IoHome, IoCard, IoDownload, IoStar } from 'react-icons/io5'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../../lib/supabase'
 import type { Job, Review } from '../../types'
@@ -10,7 +10,6 @@ export default function CustomerReceipt() {
   const { jobId } = useParams()
   const [job, setJob] = useState<Job | null>(null)
   const [customerReview, setCustomerReview] = useState<Review | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash')
 
   useEffect(() => {
     if (!jobId) return
@@ -183,33 +182,18 @@ export default function CustomerReceipt() {
 
         {/* Payment Method */}
         <div className="bg-white rounded-2xl shadow-sm p-5">
-          <p className="text-base font-semibold text-text-primary mb-4">Payment Method</p>
-
-          <button
-            onClick={() => setPaymentMethod('cash')}
-            className={`w-full flex items-center gap-3 p-4 rounded-xl border mb-3 transition ${paymentMethod === 'cash' ? 'border-primary bg-green-50' : 'border-border'}`}
-          >
+          <p className="text-base font-semibold text-text-primary mb-3">Payment Method</p>
+          <div className="flex items-center gap-3 p-4 rounded-xl border border-primary bg-green-50">
             <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <IoCash size={20} className="text-primary" />
+              <IoCard size={20} className="text-primary" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-text-primary">Cash Payment</p>
-              <p className="text-xs text-text-muted">Pay directly to worker</p>
+              <p className="text-sm font-medium text-text-primary">KarigarGo Wallet</p>
+              <p className="text-xs text-text-muted">Payment deducted from wallet balance</p>
             </div>
-            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cash' ? 'border-primary' : 'border-gray-300'}`}>
-              {paymentMethod === 'cash' && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-white text-[10px] font-bold">✓</span>
             </div>
-          </button>
-
-          <div className="w-full flex items-center gap-3 p-4 rounded-xl border border-border opacity-50 cursor-not-allowed">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-              <IoCard size={20} className="text-blue-500" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-text-primary">Online Payment</p>
-              <p className="text-xs text-text-muted">Coming soon</p>
-            </div>
-            <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
           </div>
         </div>
 
