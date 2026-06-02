@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoShareSocial, IoHome, IoCard, IoDownload, IoStar } from 'react-icons/io5'
+import { IoArrowBack, IoShareSocial, IoHome, IoCard, IoDownload, IoStar, IoCheckmarkCircle } from 'react-icons/io5'
 import { jsPDF } from 'jspdf'
 import { supabase } from '../../lib/supabase'
 import type { Job, Review } from '../../types'
@@ -26,11 +26,9 @@ export default function CustomerReceipt() {
 
   const inspectionFee = job.inspection_charges || 0
   const workCost = job.work_cost || 0
-  const isCaseA = workCost > 0
   const total = inspectionFee + workCost
   const platformFee = job.platform_fee || Math.round(total * 0.1)
   const workerReceives = total - platformFee
-  const customerPays = total
 
   const handleDownloadPdf = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -39,7 +37,6 @@ export default function CustomerReceipt() {
     const contentW = pageW - margin * 2
     let y = 20
 
-    // Header bar
     doc.setFillColor(34, 139, 87)
     doc.rect(0, 0, pageW, 38, 'F')
     doc.setTextColor(255, 255, 255)
@@ -53,13 +50,11 @@ export default function CustomerReceipt() {
     doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 31)
     y = 50
 
-    // Receipt ID
     doc.setTextColor(100, 100, 100)
     doc.setFontSize(8)
     doc.text(`Receipt ID: ${job.id}`, margin, y)
     y += 10
 
-    // Section: Job Details
     const drawSection = (title: string) => {
       doc.setFillColor(245, 245, 245)
       doc.rect(margin, y, contentW, 8, 'F')
@@ -92,54 +87,61 @@ export default function CustomerReceipt() {
     drawRow('Service', job.title)
     drawRow('Category', job.category)
     drawRow('Worker', job.worker_name || '—')
-    drawRow('Customer', job.customer_name || '—')
     drawRow('Date', new Date(job.completed_at || job.updated_at).toLocaleDateString())
     drawRow('Location', job.location)
     y += 3
 
     drawSection('Payment Breakdown')
     drawRow('Inspection Charges', `PKR ${inspectionFee.toLocaleString()}`)
-    if (isCaseA) drawRow('Work Cost', `PKR ${workCost.toLocaleString()}`)
+    if (workCost > 0) drawRow('Work Cost', `PKR ${workCost.toLocaleString()}`)
     drawDivider()
-    drawRow('Customer Pays', `PKR ${customerPays.toLocaleString()}`, true)
+    drawRow('Customer Paid', `PKR ${total.toLocaleString()}`, true)
     drawRow('Platform Commission (10%)', `- PKR ${platformFee.toLocaleString()}`)
     drawRow('Worker Receives', `PKR ${workerReceives.toLocaleString()}`, true)
+    y += 3
+    drawRow('Payment Method', 'KarigarGo Wallet')
     y += 10
 
-    // Footer
     doc.setDrawColor(200, 200, 200)
     doc.line(margin, y, pageW - margin, y)
     y += 6
     doc.setTextColor(150, 150, 150)
     doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
     doc.text('Thank you for using KarigarGo. This is a computer-generated receipt.', pageW / 2, y, { align: 'center' })
-
     doc.save(`KarigarGo_Receipt_${job.id.slice(0, 8)}.pdf`)
   }
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({ title: `KarigarGo Receipt — ${job.title}`, text: `Job: ${job.title}\nTotal: PKR ${customerPays}` })
+      navigator.share({ title: `KarigarGo Receipt — ${job.title}`, text: `Job: ${job.title}\nTotal: PKR ${total}` })
     }
   }
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] flex flex-col">
-      {/* Green header */}
       <div className="bg-primary px-6 pt-10 pb-5 rounded-b-3xl shadow-md">
         <div className="flex items-center gap-4">
           <button onClick={() => nav(-1)}><IoArrowBack size={24} className="text-white" /></button>
-          <h1 className="text-white text-xl font-medium">Payment</h1>
+          <h1 className="text-white text-xl font-medium">Payment Receipt</h1>
         </div>
       </div>
 
       <div className="flex-1 px-5 py-5 space-y-4 overflow-y-auto pb-8">
+
+        {/* Success banner */}
+        <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+          <IoCheckmarkCircle size={28} className="text-green-500 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-green-800">Job Completed!</p>
+            <p className="text-xs text-green-700">Payment has been processed from your wallet.</p>
+          </div>
+        </div>
+
         {/* Payment Summary */}
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <p className="text-base font-semibold text-text-primary mb-4">Payment Summary</p>
 
-          <div className="space-y-3 mb-4">
+          <div className="space-y-2.5 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Worker</span>
               <span className="text-text-primary font-medium">{job.worker_name}</span>
@@ -157,62 +159,65 @@ export default function CustomerReceipt() {
           <div className="border-t border-border pt-4 space-y-2.5">
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Inspection Charges</span>
-              <span className="text-text-primary">PKR {inspectionFee.toLocaleString()}</span>
+              <span className="text-text-primary">₨{inspectionFee.toLocaleString()}</span>
             </div>
-            {isCaseA && (
+            {workCost > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-text-secondary">Work Cost</span>
-                <span className="text-text-primary">PKR {workCost.toLocaleString()}</span>
+                <span className="text-text-primary">₨{workCost.toLocaleString()}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm font-semibold border-t border-border pt-3">
-              <span>Customer Pays</span>
-              <span className="text-primary text-base">PKR {customerPays.toLocaleString()}</span>
+            <div className="flex justify-between text-sm font-semibold border-t border-border pt-2.5">
+              <span>Customer Paid</span>
+              <span className="text-primary text-base">₨{total.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm text-red-500">
               <span>Platform Commission (10%)</span>
-              <span>- PKR {platformFee.toLocaleString()}</span>
+              <span>− ₨{platformFee.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-sm font-semibold">
               <span className="text-text-secondary">Worker Receives</span>
-              <span className="text-green-600">PKR {workerReceives.toLocaleString()}</span>
+              <span className="text-green-600">₨{workerReceives.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Payment Method */}
-        <div className="bg-white rounded-2xl shadow-sm p-5">
-          <p className="text-base font-semibold text-text-primary mb-3">Payment Method</p>
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-primary bg-green-50">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <IoCard size={20} className="text-primary" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-text-primary">KarigarGo Wallet</p>
-              <p className="text-xs text-text-muted">Payment deducted from wallet balance</p>
-            </div>
-            <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-white text-[10px] font-bold">✓</span>
-            </div>
+        {/* Payment method */}
+        <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+            <IoCard size={20} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-text-primary">KarigarGo Wallet</p>
+            <p className="text-xs text-text-muted">Paid from wallet balance</p>
+          </div>
+          <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+            <span className="text-white text-[10px] font-bold">✓</span>
           </div>
         </div>
 
-        {/* Actions */}
+        {/* CTAs */}
         {!customerReview && (
-          <button 
-            onClick={() => nav(`/customer/review/${jobId}`)} 
-            className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-2xl text-sm font-medium shadow-sm"
+          <button
+            onClick={() => nav(`/customer/review/${jobId}`)}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-2xl text-sm font-semibold shadow-sm"
           >
             <IoStar size={16} /> Rate Worker
           </button>
         )}
+        {customerReview && (
+          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
+            <p className="text-sm font-medium text-green-800">⭐ You've already rated this worker</p>
+          </div>
+        )}
+
         <button onClick={handleDownloadPdf} className="w-full flex items-center justify-center gap-2 border border-border bg-white text-text-primary py-3.5 rounded-2xl text-sm font-medium shadow-sm">
           <IoDownload size={16} /> Download Receipt
         </button>
         <button onClick={handleShare} className="w-full flex items-center justify-center gap-2 border border-border bg-white text-text-primary py-3.5 rounded-2xl text-sm font-medium shadow-sm">
           <IoShareSocial size={16} /> Share Receipt
         </button>
-        <button onClick={() => nav('/customer/home')} className="flex items-center justify-center gap-2 w-full border border-border bg-white text-text-secondary py-3.5 rounded-2xl text-sm font-medium shadow-sm">
+        <button onClick={() => nav('/customer/home')} className="w-full flex items-center justify-center gap-2 border border-border bg-white text-text-secondary py-3.5 rounded-2xl text-sm font-medium shadow-sm">
           <IoHome size={16} /> Back to Home
         </button>
       </div>

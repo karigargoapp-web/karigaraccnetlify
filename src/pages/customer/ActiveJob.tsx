@@ -123,14 +123,15 @@ export default function CustomerActiveJob() {
     nav(`/customer/receipt/${jobId}`)
   }
 
-  const markComplete = async () => {
+  const markComplete = async (rateAfter: boolean) => {
     if (confirming) return
     setConfirming(true)
     const { error } = await supabase.rpc('fn_complete_job', { p_job_id: jobId })
     if (error) { setConfirming(false); return toast.error(error.message) }
     setShowConfirm(false)
     toast.success('Job completed!')
-    nav(`/customer/review/${jobId}`)
+    if (rateAfter) nav(`/customer/review/${jobId}`)
+    else nav('/customer/home')
   }
 
   const cancelJob = async () => {
@@ -353,28 +354,49 @@ export default function CustomerActiveJob() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) setShowConfirm(false) }}>
           <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-6 animate-slide-up">
             <h3 className="text-lg font-semibold text-text-primary mb-1">Confirm Job Complete</h3>
-            <p className="text-sm text-text-secondary mb-4">You are about to confirm this job is done.</p>
-            <div className="space-y-2 mb-5">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-secondary">Inspection Fee</span>
-                <span className="font-medium">₨{inspectionFee}</span>
-              </div>
+            <p className="text-sm text-text-secondary mb-4">Review the payment breakdown before confirming.</p>
+
+            {/* Payment breakdown */}
+            <div className="bg-surface rounded-xl p-4 mb-4 space-y-2">
+              {inspectionFee > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-text-secondary">Inspection Fee</span>
+                  <span className="font-medium">₨{inspectionFee}</span>
+                </div>
+              )}
               {workCost > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Work Cost</span>
                   <span className="font-medium">₨{workCost}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-semibold border-t border-border pt-3">
-                <span>Total Paid</span>
-                <span className="text-primary text-base">₨{total}</span>
+              <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">
+                <span>You Paid</span>
+                <span className="text-primary">₨{total}</span>
+              </div>
+              <div className="flex justify-between text-sm text-red-500">
+                <span>Platform Commission (10%)</span>
+                <span>− ₨{Math.round(total * 0.1)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-semibold">
+                <span className="text-text-secondary">Worker Receives</span>
+                <span className="text-green-600">₨{total - Math.round(total * 0.1)}</span>
               </div>
             </div>
-            <div className="flex gap-3">
-              <button onClick={() => setShowConfirm(false)} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={markComplete} disabled={confirming}
-                className="btn-primary flex-1 disabled:opacity-60">
-                {confirming ? 'Processing...' : 'Confirm'}
+
+            {/* Action buttons */}
+            <div className="space-y-2">
+              <button onClick={() => markComplete(true)} disabled={confirming}
+                className="w-full py-3.5 bg-primary text-white rounded-2xl text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                <IoStar size={16} />
+                {confirming ? 'Processing...' : 'Confirm & Rate Worker'}
+              </button>
+              <button onClick={() => markComplete(false)} disabled={confirming}
+                className="w-full py-3.5 border border-border bg-white text-text-secondary rounded-2xl text-sm font-medium disabled:opacity-60">
+                Confirm & Review Later
+              </button>
+              <button onClick={() => setShowConfirm(false)} className="w-full py-2 text-xs text-text-muted">
+                Go Back
               </button>
             </div>
           </div>
