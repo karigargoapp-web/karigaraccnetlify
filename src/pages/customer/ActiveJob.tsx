@@ -69,7 +69,6 @@ export default function CustomerActiveJob() {
 
   // ── Inspection complete → show confirmation modal (no deduction yet) ──
   const markInspectionComplete = () => {
-    setUseRewardInspection(false)
     setShowInspectionConfirm(true)
   }
 
@@ -96,14 +95,10 @@ export default function CustomerActiveJob() {
 
   // ── End at inspection — money IS deducted here from escrow ──
   const endAtInspection = async () => {
-    const discount = useRewardInspection ? Math.min(rewardPoints, inspectionFee) : 0
-    const { error } = await supabase.rpc('fn_settle_inspection_only', {
-      p_job_id: jobId,
-      p_reward_discount: discount,
-    })
+    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId, p_reward_discount: 0 })
     if (error) return toast.error(error.message)
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId)
-    toast(discount > 0 ? `Job ended. ₨${discount} reward discount applied.` : 'Job ended at inspection. Payment settled.')
+    toast('Job ended at inspection. Payment settled.')
     nav(`/customer/receipt/${jobId}`)
   }
 
@@ -173,7 +168,6 @@ export default function CustomerActiveJob() {
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Job not found</div>
 
   // Helpers for reward discount display
-  const inspectDiscount = Math.min(rewardPoints, inspectionFee)
   const workDiscount = Math.min(rewardPoints, workCost > 0 ? workCost : 0)
   const completeDiscount = Math.min(rewardPoints, total)
 
@@ -325,19 +319,11 @@ export default function CustomerActiveJob() {
             <button onClick={requestWorkCost} className="btn-primary">🔧 Proceed with Work — Request Cost</button>
             <div className="bg-white rounded-2xl border border-border p-4 space-y-3">
               <p className="text-sm font-medium text-text-primary">End job here — pay inspection fee only</p>
-              {rewardPoints > 0 && (
-                <button onClick={() => setUseRewardInspection(v => !v)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs font-medium transition ${useRewardInspection ? 'bg-green-50 border-green-300 text-green-700' : 'bg-surface border-border text-text-secondary'}`}>
-                  <span className="flex items-center gap-1.5"><IoGift size={14} /> Use {inspectDiscount} reward pts — save ₨{inspectDiscount}</span>
-                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardInspection ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
-                    {useRewardInspection && <span className="text-white text-[9px]">✓</span>}
-                  </span>
-                </button>
-              )}
               <div className="flex justify-between text-sm font-semibold">
                 <span className="text-text-secondary">You Pay</span>
-                <span className="text-primary">₨{useRewardInspection ? inspectionFee - inspectDiscount : inspectionFee}</span>
+                <span className="text-primary">₨{inspectionFee}</span>
               </div>
+              <p className="text-xs text-text-muted">To apply reward discount, use it when accepting a bid next time.</p>
               <button onClick={endAtInspection} className="w-full py-3 border border-border bg-white text-text-secondary text-sm font-medium rounded-xl">
                 🚪 End Job Here
               </button>
