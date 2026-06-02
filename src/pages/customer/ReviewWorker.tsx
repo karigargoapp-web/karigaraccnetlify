@@ -49,7 +49,6 @@ export default function ReviewWorker() {
   const avgRating = ratings.quality && ratings.punctuality && ratings.behaviour
     ? Math.round(((ratings.quality + ratings.punctuality + ratings.behaviour) / 3) * 10) / 10
     : 0
-  const avgRatingInt = Math.round(avgRating)
 
   const handleSubmit = async () => {
     if (!ratings.quality || !ratings.punctuality || !ratings.behaviour) return toast.error('Please rate all 3 criteria')
@@ -61,7 +60,7 @@ export default function ReviewWorker() {
         reviewer_id: user.id,
         reviewer_name: user.name,
         worker_id: job.worker_id,
-        rating: avgRatingInt,
+        rating: avgRating,
         comment: comment.trim() || null,
         direction: 'customer_to_worker',
       })
