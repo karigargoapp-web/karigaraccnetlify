@@ -88,13 +88,14 @@ export default function JobDetail() {
     const { error } = await supabase.rpc('fn_lock_inspection_escrow', {
       p_job_id: jobId,
       p_customer_id: job!.customer_id,
+      p_worker_id: bid.worker_id,
       p_amount: bid.inspection_charges,
       p_reward_discount: discount,
     })
     if (error) {
       setAccepting(null)
       if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up.')
-      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20). They cannot accept jobs right now.')
+      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20).')
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')
       return toast.error(error.message)
     }
@@ -106,8 +107,8 @@ export default function JobDetail() {
       worker_name: bid.worker_name,
       inspection_charges: bid.inspection_charges,
     }).eq('id', jobId)
-    if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount will be applied when inspection is confirmed.`)
-    else toast.success('Bid accepted! Inspection fee collected when you mark inspection complete.')
+    if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount will be applied at inspection.`)
+    else toast.success('Bid accepted!')
     nav(`/customer/active-job/${jobId}`)
   }
 

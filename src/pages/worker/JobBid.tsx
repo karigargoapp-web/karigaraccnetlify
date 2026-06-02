@@ -105,7 +105,14 @@ export default function JobBid() {
         worker_lng: workerLng,
       })
 
-      if (error) { toast.error(error.message); return }
+      if (error) {
+        if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+          toast.error('You have already placed a bid on this job.')
+        } else {
+          toast.error(error.message)
+        }
+        return
+      }
       toast.success('Bid submitted!')
       nav('/worker/my-bids')
     } catch (err: any) {
