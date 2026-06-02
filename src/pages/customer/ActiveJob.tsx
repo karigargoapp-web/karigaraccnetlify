@@ -23,6 +23,9 @@ export default function CustomerActiveJob() {
   const [rewardPoints, setRewardPoints] = useState(0)
   const [useRewardForInspection, setUseRewardForInspection] = useState(false)
   const [useRewardForWork, setUseRewardForWork] = useState(false)
+  const [showInspectionConfirm, setShowInspectionConfirm] = useState(false)
+  const [useRewardForInspectionSettle, setUseRewardForInspectionSettle] = useState(false)
+  const [settlingInspection, setSettlingInspection] = useState(false)
 
   useEffect(() => {
     if (!jobId || !user) return
@@ -50,9 +53,17 @@ export default function CustomerActiveJob() {
   const workCost = job?.work_cost || 0
   const total = inspectionFee + workCost
 
-  const markInspectionComplete = async () => {
+  const markInspectionComplete = () => {
+    setUseRewardForInspectionSettle(false)
+    setShowInspectionConfirm(true)
+  }
+
+  const confirmInspectionComplete = async () => {
+    setSettlingInspection(true)
     const { error } = await supabase.from('jobs').update({ status: 'inspectionDone' }).eq('id', jobId)
-    if (error) return toast.error(error.message)
+    if (error) { setSettlingInspection(false); return toast.error(error.message) }
+    setShowInspectionConfirm(false)
+    setSettlingInspection(false)
     toast.success('Inspection marked complete!')
   }
 
@@ -69,10 +80,15 @@ export default function CustomerActiveJob() {
   }
 
   const endAtInspection = async () => {
-    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId })
+    const discount = useRewardForInspectionSettle ? Math.min(rewardPoints, inspectionFee) : 0
+    const { error } = await supabase.rpc('fn_settle_inspection_only', {
+      p_job_id: jobId,
+      p_reward_discount: discount,
+    })
     if (error) return toast.error(error.message)
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId)
-    toast('Job ended at inspection. Payment settled.')
+    if (discount > 0) toast('Job ended. \u20a8' + discount + ' reward discount applied.')
+    else toast('Job ended at inspection. Payment settled.')
     nav(`/customer/receipt/${jobId}`)
   }
 
@@ -289,9 +305,23 @@ export default function CustomerActiveJob() {
             <button onClick={requestWorkCost} className="btn-primary">
               🔧 Proceed with Work — Request Cost from Worker
             </button>
+            {rewardPoints > 0 && (
+              <button
+                onClick={() => setUseRewardForInspectionSettle(v => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition ${useRewardForInspectionSettle ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-border text-text-secondary'}`}
+              >
+                <span className="flex items-center gap-2">
+                  <IoGift size={15} />
+                  Use {Math.min(rewardPoints, inspectionFee)} reward pts — pay ₨{inspectionFee - Math.min(rewardPoints, inspectionFee)} instead
+                </span>
+                <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardForInspectionSettle ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                  {useRewardForInspectionSettle && <span className="text-white text-[10px]">✓</span>}
+                </span>
+              </button>
+            )}
             <button onClick={endAtInspection}
               className="w-full py-3.5 border border-border bg-white text-text-secondary text-sm font-medium rounded-2xl shadow-sm">
-              🚪 End Job Here (Pay Inspection Fee Only)
+              🚪 End Job Here (Pay Inspection Fee Only{useRewardForInspectionSettle && rewardPoints > 0 ? ` — ₨${inspectionFee - Math.min(rewardPoints, inspectionFee)}` : ` — ₨${inspectionFee}`})
             </button>
           </div>
         )}
@@ -375,6 +405,74 @@ export default function CustomerActiveJob() {
                 className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-50"
               >
                 {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inspection Complete Confirmation */}
+      {showInspectionConfirm && job && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <IoCheckmarkCircle size={26} className="text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-text-primary text-center mb-1">Confirm Inspection</h3>
+            <p className="text-xs text-text-muted text-center mb-5">Review the inspection fee before confirming</p>
+
+            {/* Fee breakdown */}
+            <div className="bg-surface rounded-xl p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-text-secondary">Inspection Fee</span>
+                <span className="font-medium">₨{inspectionFee}</span>
+              </div>
+              {rewardPoints > 0 && useRewardForInspectionSettle && (
+                <div className="flex justify-between text-sm text-green-700">
+                  <span>Reward Discount</span>
+                  <span className="font-medium">− ₨{Math.min(rewardPoints, inspectionFee)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">
+                <span>You Pay</span>
+                <span className="text-primary text-base">
+                  ₨{useRewardForInspectionSettle ? inspectionFee - Math.min(rewardPoints, inspectionFee) : inspectionFee}
+                </span>
+              </div>
+              {rewardPoints > 0 && useRewardForInspectionSettle && (
+                <p className="text-[11px] text-green-700 text-center">KarigarGo covers ₨{Math.min(rewardPoints, inspectionFee)}</p>
+              )}
+            </div>
+
+            {/* Reward toggle */}
+            {rewardPoints > 0 && (
+              <button
+                onClick={() => setUseRewardForInspectionSettle(v => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition mb-4 ${useRewardForInspectionSettle ? 'bg-green-50 border-green-300 text-green-700' : 'bg-surface border-border text-text-secondary'}`}
+              >
+                <span className="flex items-center gap-2">
+                  <IoGift size={16} />
+                  Use {Math.min(rewardPoints, inspectionFee)} reward points as discount
+                </span>
+                <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardForInspectionSettle ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                  {useRewardForInspectionSettle && <span className="text-white text-[10px]">✓</span>}
+                </span>
+              </button>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowInspectionConfirm(false)}
+                className="flex-1 py-3 border border-border rounded-xl text-sm font-medium text-text-primary"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={confirmInspectionComplete}
+                disabled={settlingInspection}
+                className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {settlingInspection ? 'Confirming...' : 'Confirm'}
               </button>
             </div>
           </div>
