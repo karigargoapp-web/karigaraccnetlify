@@ -105,8 +105,8 @@ export default function JobDetail() {
       worker_name: bid.worker_name,
       inspection_charges: bid.inspection_charges,
     }).eq('id', jobId)
-    if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount applied on inspection fee.`)
-    else toast.success('Bid accepted! Inspection fee locked in escrow.')
+    if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount will be applied when inspection is confirmed.`)
+    else toast.success('Bid accepted! Inspection fee collected when you mark inspection complete.')
     nav(`/customer/active-job/${jobId}`)
   }
 
@@ -315,7 +315,7 @@ export default function JobDetail() {
                         onClick={() => setUseRewardBid(useRewardBid === bid.id ? null : bid.id)}
                         className={`w-full mb-2 flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium transition ${useRewardBid === bid.id ? 'bg-green-50 border-green-300 text-green-700' : 'bg-surface border-border text-text-secondary'}`}
                       >
-                        <span className="flex items-center gap-1.5"><IoGift size={13} /> Use {Math.min(rewardPoints, bid.inspection_charges)} reward pts — pay ₨{bid.inspection_charges - Math.min(rewardPoints, bid.inspection_charges)} instead</span>
+                        <span className="flex items-center gap-1.5"><IoGift size={13} /> Use {Math.min(rewardPoints, bid.inspection_charges)} reward pts — save ₨{Math.min(rewardPoints, bid.inspection_charges)} at inspection</span>
                         <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardBid === bid.id ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
                           {useRewardBid === bid.id && <span className="text-white text-[9px]">✓</span>}
                         </span>
