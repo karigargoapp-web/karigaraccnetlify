@@ -1,4 +1,4 @@
-const CACHE = 'karigargo-v1'
+const CACHE = 'karigargo-v2'
 const OFFLINE = ['/']
 
 self.addEventListener('install', e => {
