@@ -94,6 +94,7 @@ export default function JobDetail() {
     if (error) {
       setAccepting(null)
       if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up.')
+      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20). They cannot accept jobs right now.')
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')
       return toast.error(error.message)
     }

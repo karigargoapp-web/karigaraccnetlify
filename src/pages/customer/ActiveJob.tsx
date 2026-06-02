@@ -129,8 +129,6 @@ export default function CustomerActiveJob() {
       p_reward_discount: discount,
     })
     if (error) {
-      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance.')
-      if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker needs ₨20 to start.')
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points.')
       return toast.error(error.message)
     }
