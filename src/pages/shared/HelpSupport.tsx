@@ -18,32 +18,35 @@ export default function HelpSupport() {
   const [subject, setSubject] = useState('')
   const [showConfirmation, setShowConfirmation] = useState(false)
 
-  const faqs: FAQ[] = [
-    {
-      question: 'How do I post a job?',
-      answer: 'Click the "Post a Job" button on your dashboard, fill in the job details including title, description, budget, and preferred date. Workers will start bidding on your job.',
-    },
-    {
-      question: 'How does the bidding process work?',
-      answer: 'Once you post a job, nearby workers will submit their bids with their proposed price and timeline. You can review their profiles, ratings, and choose the best worker for your job.',
-    },
-    {
-      question: 'What payment methods are accepted?',
-      answer: 'Currently, we support cash payment to workers upon job completion. Online payment methods are coming soon.',
-    },
-    {
-      question: 'How can I track my job?',
-      answer: 'Once you accept a bid, you can track the worker\'s location in real-time and receive updates about job progress.',
-    },
-    {
-      question: 'What if I\'m not satisfied with the work?',
-      answer: 'You can rate and review the worker after job completion. If you face any issues, contact our support team immediately.',
-    },
-    {
-      question: 'How do I become a verified worker?',
-      answer: 'Upload your CNIC and skill certificates in your profile. Our team will verify your documents within 24-48 hours.',
-    },
+  const customerFaqs: FAQ[] = [
+    { question: "How do I post a job?", answer: "Tap Post a Job on your dashboard. Add a title, describe the problem, record a voice note, and upload at least one photo. Workers in your city will start bidding shortly." },
+    { question: "How does the bidding process work?", answer: "Workers bid their inspection charge only (maximum Rs500). This covers visiting, assessing, and diagnosing the problem. The actual work cost is agreed after on-site inspection." },
+    { question: "What is inspection-first pricing?", answer: "When you accept a bid, the inspection fee is locked in escrow. The worker visits and inspects, then proposes a work cost. You decide whether to proceed or end at inspection. You are always in control." },
+    { question: "What do I pay and when?", answer: "Step 1: Accept a bid, inspection fee locked from your wallet (e.g. Rs300). Step 2: Worker proposes work cost (e.g. Rs2,000). Step 3: You accept, Rs2,000 locked. Step 4: Work done, you mark complete, worker gets paid. You never pay more than what you approve." },
+    { question: "Are there any hidden charges?", answer: "No. You only pay the inspection fee and the work cost you approved. Platform fees are deducted from the worker side. You are never charged extra." },
+    { question: "What are Reward Points and how do I use them?", answer: "You earn 2% of the total job value as reward points on every completed job. A Rs2,000 job earns Rs40 in reward points. You can apply them as a discount on future inspection fees or total job cost. If your job costs Rs200 and you apply Rs10 in reward points, you pay Rs190. The remaining Rs10 is covered by KarigarGo." },
+    { question: "Can I cancel a job?", answer: "Yes. You can cancel any job that has not started work yet (before In Progress). If you cancel after accepting a bid, the locked inspection fee is fully refunded to your wallet. Go to the job page and tap Cancel Job." },
+    { question: "What if I am not satisfied with the work?", answer: "Do not mark the job as complete if you are not satisfied. Raise a dispute from the active job screen. Our support team will review and resolve it fairly." },
+    { question: "How do I track the worker?", answer: "Once a bid is accepted, the worker live location is shared automatically. You can see them on the map in real-time from your active job screen." },
+    { question: "What payment methods are supported?", answer: "Payments are wallet-based. Top up your KarigarGo wallet and all transactions happen within the app. JazzCash and EasyPaisa top-up integrations are coming soon." },
   ]
+
+  const workerFaqs: FAQ[] = [
+    { question: "How do I start getting jobs?", answer: "After your account is approved by admin, open your dashboard. You will see pending jobs in your city. Tap a job to view details and place your bid. Make sure your wallet has at least Rs20." },
+    { question: "What is the bidding fee?", answer: "A Rs20 bidding fee is charged when the customer accepts your work cost and the job officially starts. It is NOT charged when you place a bid, only when the customer approves your proposed work cost." },
+    { question: "What is the Rs100 signup bonus?", answer: "Every new worker receives Rs100 in their wallet on signup. This covers your first 5 bidding fees (Rs20 each), so you can start bidding immediately without topping up." },
+    { question: "What is the inspection charge?", answer: "When bidding, you set your inspection charge for visiting the customer and assessing the job. Maximum is Rs500. This amount is paid by the customer when they accept your bid." },
+    { question: "How does the work cost work?", answer: "After inspection, the customer may ask you to proceed. You propose a total work cost. If they approve, Rs20 bidding fee is deducted from your wallet and the job starts. If they decline, the job ends and you keep the inspection fee." },
+    { question: "What does KarigarGo charge as commission?", answer: "KarigarGo deducts a 10% platform commission from your earnings on job completion. The customer never sees this charge. If the work cost is Rs2,000, you receive Rs1,800 and Rs200 goes to the platform." },
+    { question: "What are Reward Points and how do I use them?", answer: "You earn 2% of the total job value as reward points on every completed job. A Rs2,000 job earns Rs40 in reward points. You can apply them as a discount on your bidding fee. If your bidding fee is Rs20 and you apply Rs10 in reward points, you pay Rs10. The remaining Rs10 is covered by KarigarGo." },
+    { question: "Full payment example", answer: "Customer approves Rs2,000 work cost. You pay Rs20 bidding fee. On completion, 10% commission (Rs200) is deducted. You receive Rs1,800. You also earn Rs40 reward points (2% of Rs2,000). Inspection fee (e.g. Rs300) is fully yours on top of this." },
+    { question: "When do I get paid?", answer: "Payment is released to your wallet immediately when the customer marks the job as complete. Withdraw via JazzCash or EasyPaisa from the Wallet screen." },
+    { question: "What if the customer raises a dispute?", answer: "The job will be paused and our admin team will review. They may resolve by continuing the job, issuing partial payment, or cancelling. Always use in-app chat to communicate clearly and avoid disputes." },
+    { question: "Why was my account not approved?", answer: "Your account may be rejected if CNIC images are unclear or documents are missing. Check the rejection reason in the app and contact support to resubmit." },
+    { question: "Is my location always shared?", answer: "Your live location is shared with the customer automatically from when a bid is accepted until the job is completed. This helps the customer track your arrival and builds trust." },
+  ]
+
+    const faqs = user?.role === 'worker' ? workerFaqs : customerFaqs
 
   const handleSubmit = () => {
     setShowConfirmation(true)
@@ -63,7 +66,7 @@ export default function HelpSupport() {
             <IoCheckmarkCircle size={48} className="text-primary" />
           </div>
           <h2 className="text-xl font-medium text-text-primary mb-2">Message Sent!</h2>
-          <p className="text-sm text-text-muted text-center">We'll get back to you within 24 hours</p>
+          <p className="text-sm text-text-muted text-center">We\'ll get back to you within 24 hours</p>
         </div>
       </div>
     )
@@ -124,7 +127,8 @@ export default function HelpSupport() {
 
             {/* FAQs */}
             <div className="bg-white rounded-2xl shadow-sm p-5">
-              <h2 className="text-lg font-medium text-text-primary mb-4">Frequently Asked Questions</h2>
+              <h2 className="text-lg font-medium text-text-primary mb-1">Frequently Asked Questions</h2>
+              <p className="text-xs text-text-muted mb-4">{user?.role === 'worker' ? 'Worker guide — charges, payments & rewards' : 'Customer guide — how KarigarGo works'}</p>
 
               <div className="space-y-2">
                 {faqs.map((faq, index) => (
