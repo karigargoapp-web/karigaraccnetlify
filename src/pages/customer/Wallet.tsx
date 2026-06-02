@@ -31,7 +31,8 @@ export default function CustomerWallet() {
     escrow_lock: 'Job Amount Locked',
     escrow_release: 'Payment Received',
     commission: 'Platform Commission',
-    reward: 'Reward Points',
+    reward: 'Reward Points Earned',
+    reward_redemption: 'Reward Points Used',
     bidding_fee: 'Bidding Fee',
     refund: 'Refund',
     partial_refund: 'Partial Refund',
@@ -114,9 +115,23 @@ export default function CustomerWallet() {
           )}
         </div>
 
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4">
-          <p className="text-xs font-semibold text-primary mb-1">How Rewards Work</p>
-          <p className="text-xs text-text-secondary leading-relaxed">Earn 2% reward points on every completed job. 1 point = ₨1 in value. Use points for discounts on future jobs.</p>
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <IoGift size={18} className="text-primary" />
+              <p className="text-sm font-semibold text-text-primary">Reward Points</p>
+            </div>
+            <span className="text-lg font-bold text-primary">₨{wallet?.reward_points || 0}</span>
+          </div>
+          <p className="text-xs text-text-muted leading-relaxed mb-3">
+            You earn <strong>2% reward points</strong> on every completed job. Points can be used as a discount when accepting a worker bid or approving work cost — you pay the remaining amount and KarigarGo covers the discount.
+          </p>
+          <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-800 space-y-1">
+            <p className="font-medium">Example:</p>
+            <p>Work cost ₨200 · You apply ₨10 reward points</p>
+            <p>→ You pay <strong>₨190</strong> · KarigarGo pays worker ₨10</p>
+          </div>
+          <p className="text-xs text-text-muted mt-3 text-center">Apply reward points on the job page when accepting a bid or work cost</p>
         </div>
       </div>
     </div>

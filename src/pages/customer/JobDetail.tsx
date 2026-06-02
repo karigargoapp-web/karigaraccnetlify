@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoNavigate, IoCloseCircle } from 'react-icons/io5'
+import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoNavigate, IoCloseCircle, IoGift } from 'react-icons/io5'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase } from '../../lib/supabase'
@@ -34,6 +34,8 @@ export default function JobDetail() {
   const [accepting, setAccepting] = useState<string | null>(null)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [rewardPoints, setRewardPoints] = useState(0)
+  const [useRewardBid, setUseRewardBid] = useState<string | null>(null) // bid.id when toggled
 
   const fetchBids = async (jid: string) => {
     const { data } = await supabase
@@ -62,7 +64,12 @@ export default function JobDetail() {
     if (!jobId) return
     const fetchAll = async () => {
       const { data: jobData } = await supabase.from('jobs').select('*').eq('id', jobId).single()
-      if (jobData) setJob(jobData as Job)
+      if (jobData) {
+        setJob(jobData as Job)
+        // Fetch customer reward points
+        const { data: w } = await supabase.from('wallets').select('reward_points').eq('user_id', jobData.customer_id).single()
+        if (w) setRewardPoints(w.reward_points || 0)
+      }
       await fetchBids(jobId)
       setLoading(false)
     }
@@ -77,14 +84,17 @@ export default function JobDetail() {
 
   const acceptBid = async (bid: Bid) => {
     setAccepting(bid.id)
+    const discount = useRewardBid === bid.id ? Math.min(rewardPoints, bid.inspection_charges) : 0
     const { error } = await supabase.rpc('fn_lock_inspection_escrow', {
       p_job_id: jobId,
       p_customer_id: job!.customer_id,
       p_amount: bid.inspection_charges,
+      p_reward_discount: discount,
     })
     if (error) {
       setAccepting(null)
-      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up your wallet.')
+      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up.')
+      if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')
       return toast.error(error.message)
     }
     await supabase.from('bids').update({ status: 'accepted' }).eq('id', bid.id)
@@ -95,7 +105,8 @@ export default function JobDetail() {
       worker_name: bid.worker_name,
       inspection_charges: bid.inspection_charges,
     }).eq('id', jobId)
-    toast.success('Bid accepted! Inspection fee locked in escrow.')
+    if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount applied on inspection fee.`)
+    else toast.success('Bid accepted! Inspection fee locked in escrow.')
     nav(`/customer/active-job/${jobId}`)
   }
 
@@ -298,20 +309,33 @@ export default function JobDetail() {
                 )}
 
                 {!accepted && bid.status === 'pending' && job.status === 'pending' && (
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => nav(`/customer/worker/${bid.worker_id}`)}
-                      className="flex-1 py-2.5 border border-border text-sm text-text-secondary font-medium rounded-xl active:scale-[0.98] transition"
-                    >
-                      View Profile
-                    </button>
-                    <button
-                      onClick={() => acceptBid(bid)}
-                      disabled={accepting === bid.id}
-                      className="flex-1 py-2.5 bg-primary text-white text-sm font-medium rounded-xl active:scale-[0.98] transition disabled:opacity-50"
-                    >
-                      {accepting === bid.id ? 'Accepting...' : 'Accept Bid'}
-                    </button>
+                  <div className="mt-3">
+                    {rewardPoints > 0 && (
+                      <button
+                        onClick={() => setUseRewardBid(useRewardBid === bid.id ? null : bid.id)}
+                        className={`w-full mb-2 flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium transition ${useRewardBid === bid.id ? 'bg-green-50 border-green-300 text-green-700' : 'bg-surface border-border text-text-secondary'}`}
+                      >
+                        <span className="flex items-center gap-1.5"><IoGift size={13} /> Use {Math.min(rewardPoints, bid.inspection_charges)} reward pts — pay ₨{bid.inspection_charges - Math.min(rewardPoints, bid.inspection_charges)} instead</span>
+                        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardBid === bid.id ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                          {useRewardBid === bid.id && <span className="text-white text-[9px]">✓</span>}
+                        </span>
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => nav(`/customer/worker/${bid.worker_id}`)}
+                        className="flex-1 py-2.5 border border-border text-sm text-text-secondary font-medium rounded-xl active:scale-[0.98] transition"
+                      >
+                        View Profile
+                      </button>
+                      <button
+                        onClick={() => acceptBid(bid)}
+                        disabled={accepting === bid.id}
+                        className="flex-1 py-2.5 bg-primary text-white text-sm font-medium rounded-xl active:scale-[0.98] transition disabled:opacity-50"
+                      >
+                        {accepting === bid.id ? 'Accepting...' : 'Accept Bid'}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {bid.status === 'pending' && job.status !== 'pending' && (

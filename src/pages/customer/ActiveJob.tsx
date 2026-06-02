@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar, IoCloseCircle } from 'react-icons/io5'
+import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar, IoCloseCircle, IoGift } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import WorkerTrackingMap from '../../components/WorkerTrackingMap'
@@ -20,12 +20,19 @@ export default function CustomerActiveJob() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [rewardPoints, setRewardPoints] = useState(0)
+  const [useRewardForInspection, setUseRewardForInspection] = useState(false)
+  const [useRewardForWork, setUseRewardForWork] = useState(false)
 
   useEffect(() => {
-    if (!jobId) return
+    if (!jobId || !user) return
     supabase.from('jobs').select('*').eq('id', jobId).single().then(({ data }) => {
       if (data) setJob(data as Job)
       setLoading(false)
+    })
+    // Fetch customer reward points
+    supabase.from('wallets').select('reward_points').eq('user_id', user.id).single().then(({ data }) => {
+      if (data) setRewardPoints(data.reward_points || 0)
     })
     const channel = supabase.channel(`job-customer-${jobId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${jobId}` },
@@ -73,19 +80,23 @@ export default function CustomerActiveJob() {
     if (!job) return
     if (!job.worker_id) return toast.error('No worker assigned')
     if (!job.work_cost || job.work_cost <= 0) return toast.error('No work cost proposed yet')
+    const discount = useRewardForWork ? Math.min(rewardPoints, job.work_cost) : 0
     const { error } = await supabase.rpc('fn_lock_work_escrow', {
       p_job_id: jobId,
       p_customer_id: job.customer_id,
       p_worker_id: job.worker_id,
       p_work_amount: job.work_cost || 0,
+      p_reward_discount: discount,
     })
     if (error) {
       if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up.')
       if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20)')
+      if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')
       return toast.error(error.message)
     }
     await supabase.from('jobs').update({ status: 'inProgress' }).eq('id', jobId)
-    toast.success('Work cost accepted! Job is now in progress.')
+    if (discount > 0) toast.success(`Work cost accepted! ₨${discount} reward discount applied.`)
+    else toast.success('Work cost accepted! Job is now in progress.')
   }
 
   const declineWorkCost = async () => {
@@ -228,6 +239,22 @@ export default function CustomerActiveJob() {
                   Worker proposes: <span className="text-primary font-semibold">₨{job.work_cost}</span>
                 </p>
                 <p className="text-xs text-text-muted mt-1">Accept to start work. Decline to pay inspection only.</p>
+                {rewardPoints > 0 && (
+                  <button
+                    onClick={() => setUseRewardForWork(v => !v)}
+                    className={`w-full mt-2 flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium transition ${useRewardForWork ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-border text-text-secondary'}`}
+                  >
+                    <span className="flex items-center gap-1.5"><IoGift size={14} /> Use {Math.min(rewardPoints, job.work_cost)} reward points as discount</span>
+                    <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${useRewardForWork ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                      {useRewardForWork && <span className="text-white text-[9px]">✓</span>}
+                    </span>
+                  </button>
+                )}
+                {useRewardForWork && (
+                  <div className="mt-1.5 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1.5">
+                    You pay ₨{(job.work_cost || 0) - Math.min(rewardPoints, job.work_cost)} · KarigarGo covers ₨{Math.min(rewardPoints, job.work_cost)}
+                  </div>
+                )}
                 <div className="flex gap-2 mt-3">
                   <button onClick={acceptWorkCost} className="flex-1 py-2.5 bg-primary text-white text-sm font-medium rounded-xl">✅ Accept & Start</button>
                   <button onClick={declineWorkCost} className="flex-1 py-2.5 border border-border text-sm text-text-secondary rounded-xl">❌ Decline</button>

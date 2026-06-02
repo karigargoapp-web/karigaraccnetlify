@@ -107,6 +107,7 @@ export default function WorkerWallet() {
     escrow_release: 'Job Payment Received',
     commission: 'Platform Commission',
     reward: 'Reward Points Earned',
+    reward_redemption: 'Reward Points Used',
     bidding_fee: 'Job Start Fee (₨20)',
     refund: 'Refund',
     partial_refund: 'Partial Refund',
@@ -196,6 +197,25 @@ export default function WorkerWallet() {
               {lowBalance ? 'Insufficient balance — top up to bid' : `₨${balance} available — you can bid on jobs`}
             </p>
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <IoGift size={18} className="text-primary" />
+              <p className="text-sm font-semibold text-text-primary">Reward Points</p>
+            </div>
+            <span className="text-lg font-bold text-primary">₨{wallet?.reward_points || 0}</span>
+          </div>
+          <p className="text-xs text-text-muted leading-relaxed mb-3">
+            You earn <strong>2% reward points</strong> on every completed job. Use them as a discount on your ₨20 bidding fee when a job starts — you pay the remaining amount and KarigarGo covers the rest.
+          </p>
+          <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-800 space-y-1">
+            <p className="font-medium">Example:</p>
+            <p>Bidding fee ₨20 · You apply ₨10 reward points</p>
+            <p>→ You pay <strong>₨10</strong> · KarigarGo covers ₨10</p>
+          </div>
+          <p className="text-xs text-text-muted mt-3 text-center">Reward redemption for bidding fee coming soon</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-5">
