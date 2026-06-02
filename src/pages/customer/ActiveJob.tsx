@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar } from 'react-icons/io5'
+import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar, IoCloseCircle } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import WorkerTrackingMap from '../../components/WorkerTrackingMap'
@@ -17,6 +17,8 @@ export default function CustomerActiveJob() {
   const [job, setJob] = useState<Job | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -104,6 +106,23 @@ export default function CustomerActiveJob() {
     nav(`/customer/review/${jobId}`)
   }
 
+  const cancelJob = async () => {
+    if (!job) return
+    setCancelling(true)
+    const { error } = await supabase.rpc('fn_cancel_job', {
+      p_job_id: job.id,
+      p_customer_id: job.customer_id,
+    })
+    setCancelling(false)
+    setShowCancelConfirm(false)
+    if (error) return toast.error('Failed to cancel: ' + error.message)
+    toast.success('Job cancelled. Any locked funds have been refunded.')
+    nav('/customer/home', { replace: true })
+  }
+
+  // Cancellable stages: not yet in active work
+  const canCancel = job && ['bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Loading...</div>
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Job not found</div>
 
@@ -115,10 +134,18 @@ export default function CustomerActiveJob() {
           <div className="flex-1">
             <h1 className="text-white text-xl font-medium">Job Tracking</h1>
           </div>
-          <button onClick={() => nav(`/chat/${jobId}`)}
-            className="flex items-center gap-1.5 bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-xl">
-            <IoChatbubble size={14} /> Chat
-          </button>
+          <div className="flex items-center gap-2">
+            {canCancel && (
+              <button onClick={() => setShowCancelConfirm(true)}
+                className="flex items-center gap-1 bg-red-500/80 text-white text-xs font-medium px-3 py-1.5 rounded-xl hover:bg-red-500 transition">
+                <IoCloseCircle size={14} /> Cancel
+              </button>
+            )}
+            <button onClick={() => nav(`/chat/${jobId}`)}
+              className="flex items-center gap-1.5 bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-xl">
+              <IoChatbubble size={14} /> Chat
+            </button>
+          </div>
         </div>
         <div className="bg-white/10 rounded-2xl p-4">
           <p className="text-white font-medium text-base">{job.title}</p>
@@ -291,6 +318,36 @@ export default function CustomerActiveJob() {
               <button onClick={markComplete} disabled={confirming}
                 className="btn-primary flex-1 disabled:opacity-60">
                 {confirming ? 'Processing...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Job Confirmation */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <IoCloseCircle size={26} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-text-primary text-center mb-2">Cancel Job?</h3>
+            <p className="text-sm text-text-secondary text-center mb-6">
+              The job will be cancelled and the worker will be notified. Any locked inspection fee will be refunded to your wallet.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-3 border border-border rounded-xl text-sm font-medium text-text-primary"
+              >
+                Keep Job
+              </button>
+              <button
+                onClick={cancelJob}
+                disabled={cancelling}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
               </button>
             </div>
           </div>

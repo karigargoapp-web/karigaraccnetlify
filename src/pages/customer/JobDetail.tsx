@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoNavigate } from 'react-icons/io5'
+import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoNavigate, IoCloseCircle } from 'react-icons/io5'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import { supabase } from '../../lib/supabase'
@@ -32,6 +32,8 @@ export default function JobDetail() {
   const [workerCities, setWorkerCities] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [accepting, setAccepting] = useState<string | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   const fetchBids = async (jid: string) => {
     const { data } = await supabase
@@ -99,6 +101,20 @@ export default function JobDetail() {
 
   const accepted = bids.find(b => b.status === 'accepted')
 
+  const cancelJob = async () => {
+    if (!job) return
+    setCancelling(true)
+    const { error } = await supabase.rpc('fn_cancel_job', {
+      p_job_id: job.id,
+      p_customer_id: job.customer_id,
+    })
+    setCancelling(false)
+    setShowCancelConfirm(false)
+    if (error) return toast.error('Failed to cancel: ' + error.message)
+    toast.success('Job cancelled')
+    nav('/customer/home', { replace: true })
+  }
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface text-sm text-text-muted">Loading...</div>
   )
@@ -118,12 +134,22 @@ export default function JobDetail() {
               <p className="text-white/70 text-sm">{job.title}</p>
             </div>
           </div>
-          <button
-            onClick={() => nav(`/chat/${jobId}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition"
-          >
-            <IoChatbubble size={16} /> Chat
-          </button>
+          <div className="flex items-center gap-2">
+            {job.status === 'pending' && (
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-red-500/80 text-white hover:bg-red-500 transition"
+              >
+                <IoCloseCircle size={16} /> Cancel
+              </button>
+            )}
+            <button
+              onClick={() => nav(`/chat/${jobId}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition"
+            >
+              <IoChatbubble size={16} /> Chat
+            </button>
+          </div>
         </div>
 
         {/* Task info card inside header */}
@@ -303,6 +329,36 @@ export default function JobDetail() {
           )}
         </div>
       </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <IoCloseCircle size={26} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-text-primary text-center mb-2">Cancel Job?</h3>
+            <p className="text-sm text-text-secondary text-center mb-6">
+              This job will be cancelled and removed from the feed. Workers will be notified.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 py-3 border border-border rounded-xl text-sm font-medium text-text-primary"
+              >
+                Keep Job
+              </button>
+              <button
+                onClick={cancelJob}
+                disabled={cancelling}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+              >
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

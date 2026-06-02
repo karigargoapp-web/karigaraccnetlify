@@ -45,11 +45,12 @@ export default function MyJobs() {
   }, [user])
 
   const cancelJob = async (jobId: string) => {
+    if (!user) return
     setDeleting(true)
-    const { error } = await supabase
-      .from('jobs')
-      .update({ status: 'cancelled' })
-      .eq('id', jobId)
+    const { error } = await supabase.rpc('fn_cancel_job', {
+      p_job_id: jobId,
+      p_customer_id: user.id,
+    })
     setDeleting(false)
     setDeleteConfirmJob(null)
     if (error) {
@@ -61,7 +62,7 @@ export default function MyJobs() {
   }
 
   const canCancelJob = (job: Job) => {
-    return job.status === 'pending' || job.status === 'bidAccepted'
+    return ['pending', 'bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
   }
 
   const filtered = jobs.filter(j => {
