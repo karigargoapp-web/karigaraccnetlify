@@ -208,14 +208,9 @@ export default function WorkerWallet() {
             <span className="text-lg font-bold text-primary">₨{wallet?.reward_points || 0}</span>
           </div>
           <p className="text-xs text-text-muted leading-relaxed mb-3">
-            You earn <strong>2% reward points</strong> on every completed job. Use them as a discount on your ₨20 bidding fee when a job starts — you pay the remaining amount and KarigarGo covers the rest.
+            You earn <strong>2% reward points</strong> on every completed job. Use them as a discount on your ₨20 bidding fee when a job starts — you only pay the reduced amount.
           </p>
-          <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-800 space-y-1">
-            <p className="font-medium">Example:</p>
-            <p>Bidding fee ₨20 · You apply ₨10 reward points</p>
-            <p>→ You pay <strong>₨10</strong> · KarigarGo covers ₨10</p>
-          </div>
-          <p className="text-xs text-text-muted mt-3 text-center">Reward redemption for bidding fee coming soon</p>
+          <p className="text-xs text-text-muted text-center">Reward redemption for bidding fee coming soon</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-5">

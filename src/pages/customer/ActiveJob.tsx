@@ -286,7 +286,7 @@ export default function CustomerActiveJob() {
                 )}
                 {useRewardWorkAccept && rewardPoints > 0 && (
                   <p className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-1.5 text-center">
-                    You pay ₨{(job.work_cost || 0) - workDiscount} when job completes · KarigarGo covers ₨{workDiscount}
+                    You pay ₨{(job.work_cost || 0) - workDiscount} when job completes
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -416,9 +416,6 @@ export default function CustomerActiveJob() {
                 <span>You Pay Now</span>
                 <span className="text-primary text-base">₨{workCustomerPays > 0 ? workCustomerPays : workCost}</span>
               </div>
-              {storedWorkDiscount > 0 && (
-                <p className="text-[11px] text-green-700 text-center">KarigarGo covers ₨{storedWorkDiscount}</p>
-              )}
             </div>
 
             <div className="space-y-2">

@@ -124,14 +124,9 @@ export default function CustomerWallet() {
             <span className="text-lg font-bold text-primary">₨{wallet?.reward_points || 0}</span>
           </div>
           <p className="text-xs text-text-muted leading-relaxed mb-3">
-            You earn <strong>2% reward points</strong> on every completed job. Points can be used as a discount when accepting a worker bid or approving work cost — you pay the remaining amount and KarigarGo covers the discount.
+            You earn <strong>2% reward points</strong> on every completed job. Apply them as a discount on inspection fees or work costs — you only pay the reduced amount.
           </p>
-          <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-800 space-y-1">
-            <p className="font-medium">Example:</p>
-            <p>Work cost ₨200 · You apply ₨10 reward points</p>
-            <p>→ You pay <strong>₨190</strong> · KarigarGo pays worker ₨10</p>
-          </div>
-          <p className="text-xs text-text-muted mt-3 text-center">Apply reward points on the job page when accepting a bid or work cost</p>
+          <p className="text-xs text-text-muted text-center">Apply reward points on the job page when accepting a bid or work cost</p>
         </div>
       </div>
     </div>
