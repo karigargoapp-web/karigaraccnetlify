@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { IoArrowBack, IoChatbubble } from 'react-icons/io5'
 import toast from 'react-hot-toast'
-import type { DisputeResolution } from '../../types'
+import type { DisputeResolution, DisputeMessage } from '../../types'
+import DisputeMediaView from '../../components/DisputeMediaView'
+import DisputeMessageList from '../../components/DisputeMessageList'
+import DisputeMediaPicker, { DisputeMedia } from '../../components/DisputeMediaPicker'
 
 export default function AdminDisputeDetail() {
   const { disputeId } = useParams()
@@ -14,13 +17,33 @@ export default function AdminDisputeDetail() {
   const [job, setJob] = useState<any>(null)
   const [escrow, setEscrow] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
+  const [disputeMessages, setDisputeMessages] = useState<DisputeMessage[]>([])
+  const [remarkText, setRemarkText] = useState('')
+  const [remarkParty, setRemarkParty] = useState<'customer' | 'worker'>('customer')
+  const [remarkMedia, setRemarkMedia] = useState<DisputeMedia>({})
+  const [sendingRemark, setSendingRemark] = useState(false)
   const [resolution, setResolution] = useState<DisputeResolution>('continue')
   const [settledPct, setSettledPct] = useState(50)
   const [adminNotes, setAdminNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchAll() }, [disputeId])
+  const fetchDisputeMessages = useCallback(async () => {
+    if (!disputeId) return
+    const { data } = await supabase.from('dispute_messages').select('*').eq('dispute_id', disputeId).order('created_at', { ascending: true })
+    if (data) setDisputeMessages(data as DisputeMessage[])
+  }, [disputeId])
+
+  useEffect(() => { fetchAll(); fetchDisputeMessages() }, [disputeId])
+
+  useEffect(() => {
+    if (!disputeId) return
+    const channel = supabase.channel(`admin-dispute-messages-${disputeId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dispute_messages', filter: `dispute_id=eq.${disputeId}` },
+        (payload) => setDisputeMessages(prev => [...prev, payload.new as DisputeMessage]))
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [disputeId])
 
   async function fetchAll() {
     setLoading(true)
@@ -36,6 +59,39 @@ export default function AdminDisputeDetail() {
     if (e) setEscrow(e)
     if (m) setMessages(m)
     setLoading(false)
+  }
+
+  async function sendRemark() {
+    if (!remarkText.trim()) { toast.error('Please enter a remark'); return }
+    if (!user || !job) return
+    const targetId = remarkParty === 'customer' ? job.customer_id : job.worker_id
+    if (!targetId) { toast.error(`No ${remarkParty} assigned to this job`); return }
+    setSendingRemark(true)
+    try {
+      const { error } = await supabase.from('dispute_messages').insert({
+        dispute_id: disputeId,
+        sender_id: user.id,
+        sender_role: 'admin',
+        message: remarkText.trim(),
+        directed_to: targetId,
+        photo_url: remarkMedia.photo_url,
+        voice_url: remarkMedia.voice_url,
+        video_url: remarkMedia.video_url,
+      })
+      if (error) throw error
+      await supabase.from('notifications').insert({
+        user_id: targetId, type: 'system',
+        title: 'Admin Requested More Information',
+        body: `Regarding "${job.title}": ${remarkText.trim()}`,
+      })
+      setRemarkText('')
+      setRemarkMedia({})
+      toast.success(`Remark sent to ${remarkParty}`)
+    } catch {
+      toast.error('Failed to send remark')
+    } finally {
+      setSendingRemark(false)
+    }
   }
 
   async function resolveDispute() {
@@ -95,6 +151,7 @@ export default function AdminDisputeDetail() {
         <div className="mt-3 p-3 bg-white/60 rounded-lg">
           <p className="text-xs font-medium text-red-600 mb-1">Dispute Reason:</p>
           <p className="text-sm text-red-800">{dispute.reason}</p>
+          <DisputeMediaView photo_url={dispute.photo_url} voice_url={dispute.voice_url} video_url={dispute.video_url} />
         </div>
         <p className="text-xs text-red-400 mt-2">Raised {new Date(dispute.created_at).toLocaleString()}</p>
       </div>
@@ -130,6 +187,40 @@ export default function AdminDisputeDetail() {
           </div>
         </div>
       )}
+
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <h2 className="font-semibold text-gray-900">Dispute Remarks</h2>
+        <p className="text-xs text-gray-400 -mt-2">
+          Ask either party for more information. Only the selected party will see a box to respond — the other can only view.
+        </p>
+        <DisputeMessageList messages={disputeMessages} job={job} />
+
+        {dispute.status === 'open' && (
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-700 block mb-1.5">Request info from</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setRemarkParty('customer')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium border ${remarkParty === 'customer' ? 'bg-primary text-white border-primary' : 'border-gray-200 text-gray-600'}`}>
+                  Customer {job.customer_name ? `(${job.customer_name})` : ''}
+                </button>
+                <button type="button" onClick={() => setRemarkParty('worker')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium border ${remarkParty === 'worker' ? 'bg-primary text-white border-primary' : 'border-gray-200 text-gray-600'}`}>
+                  Worker {job.worker_name ? `(${job.worker_name})` : ''}
+                </button>
+              </div>
+            </div>
+            <textarea value={remarkText} onChange={e => setRemarkText(e.target.value)} rows={3}
+              placeholder="What additional information do you need?"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none" />
+            <DisputeMediaPicker pathPrefix={`disputes/${dispute.job_id}`} media={remarkMedia} onChange={setRemarkMedia} />
+            <button onClick={sendRemark} disabled={sendingRemark || !remarkText.trim()}
+              className="w-full py-2.5 bg-gray-800 text-white rounded-xl text-sm font-medium disabled:opacity-40">
+              {sendingRemark ? 'Sending...' : 'Send Remark'}
+            </button>
+          </div>
+        )}
+      </div>
 
       {dispute.status === 'open' && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-5">
@@ -174,9 +265,9 @@ export default function AdminDisputeDetail() {
           )}
 
           <div>
-            <label className="text-sm font-semibold text-gray-700 block mb-2">Resolution Notes <span className="text-red-500">*</span></label>
+            <label className="text-sm font-semibold text-gray-700 block mb-2">Final Remark <span className="text-red-500">*</span></label>
             <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)}
-              rows={4} placeholder="Explain the resolution in detail. Both parties will receive this message..."
+              rows={4} placeholder="Explain the final decision in detail. Both parties will receive this message..."
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"/>
           </div>
 

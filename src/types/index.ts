@@ -57,6 +57,21 @@ export type JobStatus =
 
 export type CancellationActor = 'customer' | 'worker' | 'admin'
 
+export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
+  pending: 'Pending',
+  bidAccepted: 'Bid Accepted',
+  inspectionDone: 'Inspection Done',
+  proceedRequested: 'Proceed Requested',
+  workCostProposed: 'Cost Proposed',
+  workCostAccepted: 'Cost Approved',
+  workCostRejected: 'Cost Rejected',
+  inProgress: 'In Progress',
+  paused: 'Paused',
+  disputed: 'Dispute Raised',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
 export interface Job {
   id: string
   title: string
@@ -214,6 +229,22 @@ export interface Dispute {
   admin_notes?: string
   resolved_by?: string
   resolved_at?: string
+  photo_url?: string
+  voice_url?: string
+  video_url?: string
+  created_at: string
+}
+
+export interface DisputeMessage {
+  id: string
+  dispute_id: string
+  sender_id: string
+  sender_role: UserRole
+  message: string
+  directed_to?: string
+  photo_url?: string
+  voice_url?: string
+  video_url?: string
   created_at: string
 }
 
@@ -222,7 +253,6 @@ export const DISPUTE_REASONS = [
   'Worker did not show up',
   'Worker misbehaved / unprofessional',
   'Work quality is poor',
-  'Price / cost disagreement',
   'Safety concern at site',
   'Job abandoned midway',
   'Other',

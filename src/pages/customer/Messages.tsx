@@ -104,6 +104,7 @@ export default function CustomerMessages() {
     if (s === 'workCostProposed') return 'Cost Pending'
     if (s === 'workCostAccepted') return 'Approved'
     if (s === 'completed') return 'Done'
+    if (s === 'disputed') return 'Dispute Raised'
     return s
   }
 

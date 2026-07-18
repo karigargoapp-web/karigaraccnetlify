@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { IoSearch, IoRefresh, IoBriefcase } from 'react-icons/io5'
-import { PAKISTAN_CITIES } from '../../types'
+import { PAKISTAN_CITIES, JOB_STATUS_LABELS } from '../../types'
 
 type Tab = 'all'|'active'|'paused'|'disputed'|'completed'|'cancelled'
 
@@ -141,7 +141,7 @@ export default function AdminJobs() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-gray-900 truncate">{j.title}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[j.status]||'bg-gray-100 text-gray-600'}`}>
-                      {j.status}
+                      {JOB_STATUS_LABELS[j.status as keyof typeof JOB_STATUS_LABELS] || j.status}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500 flex-wrap">

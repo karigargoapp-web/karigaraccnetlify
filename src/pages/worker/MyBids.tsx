@@ -74,6 +74,12 @@ export default function MyBids() {
           In Progress
         </span>
       )
+    if (s === 'disputed')
+      return (
+        <span className="text-xs font-medium px-2 py-1 rounded-lg bg-red-100 text-red-700">
+          Dispute Raised
+        </span>
+      )
     return (
       <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-text-muted">
         {s}

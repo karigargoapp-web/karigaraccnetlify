@@ -71,6 +71,7 @@ export default function CustomerHome() {
   const statusLabel = (s: string) => {
     if (s === 'pending') return <span className="pill-pending">Bidding</span>
     if (s === 'completed') return <span className="pill-completed">Completed</span>
+    if (s === 'disputed') return <span className="pill-rejected">Dispute Raised</span>
     return <span className="pill-active">In Progress</span>
   }
 

@@ -53,6 +53,7 @@ const STATUS_LABELS: Record<string, string> = {
   workCostProposed: 'Awaiting your cost approval',
   workCostAccepted: 'Work in progress',
   completed: 'Job completed',
+  disputed: 'Dispute Raised',
 }
 
 export default function TrackingScreen() {

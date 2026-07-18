@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { DISPUTE_REASONS } from '../types'
 import type { Job } from '../types'
+import DisputeMediaPicker, { DisputeMedia } from './DisputeMediaPicker'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -16,6 +17,7 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
   const { user } = useAuth()
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
+  const [media, setMedia] = useState<DisputeMedia>({})
   const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
@@ -30,7 +32,10 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
 
       const { data: dispute, error } = await supabase
         .from('disputes')
-        .insert({ job_id: job.id, raised_by: user.id, reason: fullReason })
+        .insert({
+          job_id: job.id, raised_by: user.id, reason: fullReason,
+          photo_url: media.photo_url, voice_url: media.voice_url, video_url: media.video_url,
+        })
         .select()
         .single()
       if (error) throw error
@@ -115,6 +120,13 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
             onChange={e => setDetails(e.target.value)}
             className="resize-none"
           />
+        </div>
+
+        <div className="mb-5">
+          <label className="text-sm font-medium text-text-primary mb-1.5 block">
+            Evidence <span className="text-text-muted font-normal">(optional)</span>
+          </label>
+          <DisputeMediaPicker pathPrefix={`disputes/${job.id}`} media={media} onChange={setMedia} />
         </div>
 
         <div className="space-y-2">

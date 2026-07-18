@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { IoArrowBack, IoCheckmark, IoClose, IoStar, IoBriefcase, IoWallet } from 'react-icons/io5'
 import toast from 'react-hot-toast'
+import { JOB_STATUS_LABELS } from '../../types'
 
 export default function AdminWorkerDetail() {
   const { workerId } = useParams()
@@ -245,7 +246,7 @@ export default function AdminWorkerDetail() {
                 </div>
                 <div className="text-right ml-4 flex-shrink-0">
                   <p className="text-sm font-semibold text-gray-900">₨{((j.work_cost_total||j.inspection_charges)||0).toLocaleString()}</p>
-                  <p className={`text-xs ${STATUS_COLOR[j.status]||'text-gray-400'}`}>{j.status}</p>
+                  <p className={`text-xs ${STATUS_COLOR[j.status]||'text-gray-400'}`}>{JOB_STATUS_LABELS[j.status as keyof typeof JOB_STATUS_LABELS] || j.status}</p>
                 </div>
               </div>
             ))}

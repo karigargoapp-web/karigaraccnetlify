@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import WorkerTrackingMap from '../../components/WorkerTrackingMap'
 import RaiseDisputeModal from '../../components/RaiseDisputeModal'
 import DisputeBanner from '../../components/DisputeBanner'
+import DisputeThread from '../../components/DisputeThread'
 import type { Job, Dispute } from '../../types'
 import toast from 'react-hot-toast'
 
@@ -29,6 +30,9 @@ export default function CustomerActiveJob() {
 
   // Work cost acceptance reward toggle
   const [useRewardWorkAccept, setUseRewardWorkAccept] = useState(false)
+
+  // End-at-inspection reward toggle
+  const [useRewardEndInspection, setUseRewardEndInspection] = useState(false)
 
   // Inspection complete modal
   const [showInspectionConfirm, setShowInspectionConfirm] = useState(false)
@@ -119,13 +123,17 @@ export default function CustomerActiveJob() {
     toast.success('Worker notified!')
   }
 
-  // ── End at inspection → deduct wallet NOW using stored discount ──
+  // ── End at inspection → deduct wallet NOW using chosen discount ──
   const endAtInspection = async () => {
-    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId, p_reward_discount: 0 })
-    if (error) return toast.error(error.message)
+    const discount = useRewardEndInspection ? Math.min(rewardPoints, inspectionFee) : storedInspectionDiscount
+    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId, p_reward_discount: discount })
+    if (error) {
+      if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points.')
+      return toast.error(error.message)
+    }
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', jobId)
-    const msg = storedInspectionDiscount > 0
-      ? `Job ended. ₨${storedInspectionDiscount} reward discount applied — you paid ₨${inspectionFee - storedInspectionDiscount}.`
+    const msg = discount > 0
+      ? `Job ended. ₨${discount} reward discount applied — you paid ₨${inspectionFee - discount}.`
       : 'Job ended at inspection. Payment settled.'
     toast(msg)
     nav(`/customer/receipt/${jobId}`)
@@ -153,7 +161,7 @@ export default function CustomerActiveJob() {
   }
 
   const declineWorkCost = async () => {
-    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId, p_reward_discount: 0 })
+    const { error } = await supabase.rpc('fn_settle_inspection_only', { p_job_id: jobId, p_reward_discount: storedInspectionDiscount })
     if (error) return toast.error(error.message)
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString(), work_cost: 0 }).eq('id', jobId)
     toast('Work cost declined — inspection fee settled.')
@@ -195,7 +203,8 @@ export default function CustomerActiveJob() {
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Job not found</div>
 
   const workDiscount = Math.min(rewardPoints, workCost > 0 ? workCost : 0)
-  const inspectionCustomerPays = inspectionFee - storedInspectionDiscount
+  const inspectionDiscount = useRewardEndInspection ? Math.min(rewardPoints, inspectionFee) : storedInspectionDiscount
+  const inspectionCustomerPays = inspectionFee - inspectionDiscount
   const workCustomerPays = workCost - storedWorkDiscount
 
   return (
@@ -322,6 +331,7 @@ export default function CustomerActiveJob() {
 
         {/* Disputed */}
         {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
+        {job.status === 'disputed' && dispute && <DisputeThread dispute={dispute} job={job} />}
 
         {/* Step 1: Inspection */}
         {job.status === 'bidAccepted' && (
@@ -338,15 +348,24 @@ export default function CustomerActiveJob() {
             <button onClick={requestWorkCost} className="btn-primary">🔧 Proceed with Work — Request Cost</button>
             <div className="bg-white rounded-2xl border border-border p-4 space-y-3">
               <p className="text-sm font-medium text-text-primary">End job here — pay inspection fee only</p>
+              {rewardPoints > 0 && (
+                <button onClick={() => setUseRewardEndInspection(v => !v)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs font-medium transition ${useRewardEndInspection ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-border text-text-secondary'}`}>
+                  <span className="flex items-center gap-1.5"><IoGift size={14} /> Use {Math.min(rewardPoints, inspectionFee)} reward pts — save ₨{Math.min(rewardPoints, inspectionFee)}</span>
+                  <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${useRewardEndInspection ? 'bg-green-500 border-green-500' : 'border-gray-300'}`}>
+                    {useRewardEndInspection && <span className="text-white text-[9px]">✓</span>}
+                  </span>
+                </button>
+              )}
               <div className="space-y-1.5">
                 <div className="flex justify-between text-sm">
                   <span className="text-text-secondary">Inspection Fee</span>
                   <span>₨{inspectionFee}</span>
                 </div>
-                {storedInspectionDiscount > 0 && (
+                {inspectionDiscount > 0 && (
                   <div className="flex justify-between text-sm text-green-700">
                     <span>Reward Discount</span>
-                    <span>− ₨{storedInspectionDiscount}</span>
+                    <span>− ₨{inspectionDiscount}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm font-semibold border-t border-border pt-2">

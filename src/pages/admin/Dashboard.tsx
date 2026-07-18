@@ -5,6 +5,7 @@ import {
   IoPeople, IoBriefcase, IoWarning, IoWallet, IoTrendingUp,
   IoTime, IoCheckmarkCircle, IoPauseCircle, IoRefresh, IoArrowForward
 } from 'react-icons/io5'
+import { JOB_STATUS_LABELS } from '../../types'
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'bg-slate-100 text-slate-600',
@@ -200,7 +201,7 @@ export default function AdminDashboard() {
                       ₨{((job.work_cost_total || job.inspection_charges) || 0).toLocaleString()}
                     </p>
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLOR[job.status] || 'bg-slate-100 text-slate-600'}`}>
-                      {job.status}
+                      {JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] || job.status}
                     </span>
                   </div>
                 </div>

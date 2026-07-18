@@ -100,6 +100,7 @@ export default function WorkerMessages() {
     if (s === 'workCostProposed') return 'Cost Pending'
     if (s === 'workCostAccepted') return 'Approved'
     if (s === 'completed') return 'Done'
+    if (s === 'disputed') return 'Dispute Raised'
     return s
   }
 

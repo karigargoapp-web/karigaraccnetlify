@@ -78,6 +78,7 @@ export default function MyJobs() {
     if (s === 'pending') return <span className="pill-pending text-[10px] font-medium">Bidding</span>
     if (s === 'completed') return <span className="pill-completed text-[10px] font-medium">Done</span>
     if (s === 'cancelled') return <span className="pill-rejected text-[10px] font-medium">Cancelled</span>
+    if (s === 'disputed') return <span className="pill-rejected text-[10px] font-medium">Dispute Raised</span>
     return <span className="pill-active text-[10px] font-medium">In Progress</span>
   }
 

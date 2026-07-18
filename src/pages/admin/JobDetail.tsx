@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { IoArrowBack, IoWarning, IoChatbubble, IoWallet } from 'react-icons/io5'
 import toast from 'react-hot-toast'
+import { JOB_STATUS_LABELS } from '../../types'
 
 const STATUS_COLOR: Record<string,string> = {
   pending:'bg-gray-100 text-gray-600', bidAccepted:'bg-blue-100 text-blue-700',
@@ -83,7 +84,7 @@ export default function AdminJobDetail() {
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-gray-900">{job.title}</h1>
             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[job.status]||'bg-gray-100 text-gray-600'}`}>{job.status}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLOR[job.status]||'bg-gray-100 text-gray-600'}`}>{JOB_STATUS_LABELS[job.status as keyof typeof JOB_STATUS_LABELS] || job.status}</span>
               {job.category && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{job.category}</span>}
               {job.city && <span className="text-xs text-gray-500">📍 {job.city}</span>}
             </div>

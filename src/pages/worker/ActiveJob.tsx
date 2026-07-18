@@ -6,6 +6,7 @@ import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, I
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import DisputeBanner from '../../components/DisputeBanner'
+import DisputeThread from '../../components/DisputeThread'
 import RaiseDisputeModal from '../../components/RaiseDisputeModal'
 import type { Job, Dispute } from '../../types'
 import toast from 'react-hot-toast'
@@ -379,6 +380,7 @@ export default function WorkerActiveJob() {
 
         {/* State-based actions */}
         {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
+        {job.status === 'disputed' && dispute && <DisputeThread dispute={dispute} job={job} />}
 
         {job.status === 'bidAccepted' && (
           <div className="card p-4 text-center">
