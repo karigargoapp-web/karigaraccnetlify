@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { IoArrowBack, IoCamera, IoCheckmarkCircle, IoCloudUpload, IoClose, IoLanguage } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { emailRedirect } from '../../lib/authRedirect'
-import { SERVICE_CATEGORIES, PAKISTAN_CITIES } from '../../types'
+import { WORKER_SKILL_CATEGORIES, PAKISTAN_CITIES } from '../../types'
 import {
   formatCNICDisplay,
   PASSWORD_HINT,
@@ -477,7 +477,7 @@ export default function WorkerSignup() {
               <label className="section-title">Select Your Skills (Max 3) *</label>
               <p className="text-xs text-text-muted mb-2">{skills.length}/3 skills selected</p>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {SERVICE_CATEGORIES.map(cat => (
+                {WORKER_SKILL_CATEGORIES.map(cat => (
                   <button key={cat.name} onClick={() => toggleSkill(cat.name)}
                     className={`flex items-center gap-2 px-3 py-3 rounded-xl border text-sm transition ${skills.includes(cat.name) ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-text-secondary'}`}>
                     <span>{cat.icon}</span>

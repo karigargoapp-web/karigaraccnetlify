@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IoHome, IoBriefcase, IoChatbubbleEllipses, IoPerson, IoAdd, IoCall, IoChatbubble, IoNotifications } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useI18n } from '../../lib/i18n'
 import NotificationBell from '../../components/NotificationBell'
 import type { Job } from '../../types'
-import { SERVICE_CATEGORIES } from '../../types'
+import { CUSTOMER_SERVICE_CATEGORIES } from '../../types'
 
 export default function CustomerHome() {
   const nav = useNavigate()
@@ -15,6 +15,9 @@ export default function CustomerHome() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('home')
+  const categoryScrollRef = useRef<HTMLDivElement>(null)
+  const isPausedRef = useRef(false)
+  const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -29,6 +32,38 @@ export default function CustomerHome() {
     }
     fetch()
   }, [user])
+
+  // Slow, continuous, infinite auto-scroll for the service categories carousel.
+  // Pauses while the user is manually swiping, then resumes on its own.
+  useEffect(() => {
+    const el = categoryScrollRef.current
+    if (!el) return
+    let raf: number
+    const speed = 0.35 // px per frame — slow, premium feel
+    const step = () => {
+      if (!isPausedRef.current && el) {
+        const half = el.scrollWidth / 2
+        el.scrollLeft += speed
+        if (el.scrollLeft >= half) el.scrollLeft -= half
+      }
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const pauseCategoryScroll = () => {
+    isPausedRef.current = true
+    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current)
+  }
+  const resumeCategoryScrollSoon = () => {
+    if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current)
+    resumeTimeoutRef.current = setTimeout(() => { isPausedRef.current = false }, 1500)
+  }
+
+  const goToCategoryJob = (categoryName: string) => {
+    nav('/customer/post-job', { state: { category: categoryName } })
+  }
 
   const ongoing = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected')
   const completed = jobs.filter(j => j.status === 'completed' || j.status === 'workCostRejected')
@@ -76,9 +111,21 @@ export default function CustomerHome() {
       <div className="flex-1 overflow-y-auto px-5 py-5 pb-24">
         {/* Service Categories — auto-scrolling */}
         <p className="section-title">{t('serviceCategories')}</p>
-        <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-hide">
-          {SERVICE_CATEGORIES.map((cat, idx) => (
-            <div key={idx} className="flex flex-col items-center min-w-[64px]">
+        <div
+          ref={categoryScrollRef}
+          className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-hide"
+          onPointerDown={pauseCategoryScroll}
+          onPointerUp={resumeCategoryScrollSoon}
+          onPointerLeave={resumeCategoryScrollSoon}
+          onTouchStart={pauseCategoryScroll}
+          onTouchEnd={resumeCategoryScrollSoon}
+        >
+          {[...CUSTOMER_SERVICE_CATEGORIES, ...CUSTOMER_SERVICE_CATEGORIES].map((cat, idx) => (
+            <button
+              key={idx}
+              onClick={() => goToCategoryJob(cat.name)}
+              className="flex flex-col items-center min-w-[64px] shrink-0"
+            >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1.5 shadow-sm"
                 style={{ backgroundColor: cat.color + '20' }}
@@ -86,7 +133,7 @@ export default function CustomerHome() {
                 <span className="text-2xl">{cat.icon}</span>
               </div>
               <span className="text-[11px] text-text-secondary text-center">{cat.name}</span>
-            </div>
+            </button>
           ))}
         </div>
 

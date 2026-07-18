@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { IoCheckmarkCircle, IoCloudUpload } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { SERVICE_CATEGORIES, PAKISTAN_CITIES } from '../../types'
+import { WORKER_SKILL_CATEGORIES, PAKISTAN_CITIES } from '../../types'
 import {
   formatCNICDisplay,
   validateCNIC,
@@ -169,7 +169,7 @@ export default function CompleteWorkerProfile() {
             <div>
               <label className="section-title">Select Your Skills *</label>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                {SERVICE_CATEGORIES.map(cat => (
+                {WORKER_SKILL_CATEGORIES.map(cat => (
                   <button
                     key={cat.name}
                     onClick={() => toggleSkill(cat.name)}

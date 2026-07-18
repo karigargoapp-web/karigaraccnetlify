@@ -4,7 +4,7 @@ import { IoHome, IoBriefcase, IoWallet, IoPerson, IoLocation, IoCalendar, IoCash
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import NotificationBell from '../../components/NotificationBell'
-import { SERVICE_CATEGORIES, BIDDING_FEE } from '../../types'
+import { CUSTOMER_SERVICE_CATEGORIES, CATEGORY_SKILL_MATCH, BIDDING_FEE } from '../../types'
 import type { Job, WorkerProfile as WP } from '../../types'
 
 export default function WorkerDashboard() {
@@ -83,7 +83,16 @@ export default function WorkerDashboard() {
     return () => { supabase.removeChannel(channel) }
   }, [user])
 
-  const filtered = filter ? jobs.filter(j => j.category === filter) : jobs
+  // Jobs in categories with a skill match rule are only shown to workers who
+  // hold at least one of the allowed skills (OR match). Other categories keep
+  // existing behaviour and remain visible to everyone.
+  const workerSkills = profile?.skills || []
+  const matchedJobs = jobs.filter(j => {
+    const allowedSkills = CATEGORY_SKILL_MATCH[j.category]
+    if (!allowedSkills) return true
+    return allowedSkills.some(s => workerSkills.includes(s))
+  })
+  const filtered = filter ? matchedJobs.filter(j => j.category === filter) : matchedJobs
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -172,7 +181,7 @@ export default function WorkerDashboard() {
           >
             All Categories
           </button>
-          {SERVICE_CATEGORIES.map(c => (
+          {CUSTOMER_SERVICE_CATEGORIES.map(c => (
             <button
               key={c.name}
               onClick={() => setFilter(c.name === filter ? '' : c.name)}

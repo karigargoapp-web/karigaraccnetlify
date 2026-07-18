@@ -258,6 +258,24 @@ export const SERVICE_CATEGORIES = [
   { name: 'Welder', color: '#B71C1C', icon: '🔥' },
 ] as const
 
+// Customer-facing category shown on Home / Post a Job
+export const CUSTOMER_SERVICE_CATEGORIES = [
+  ...SERVICE_CATEGORIES,
+  { name: 'Electronics Repair', color: '#00B8D9', icon: '🔌' },
+] as const
+
+// Worker-facing specialization shown on signup / profile
+export const WORKER_SKILL_CATEGORIES = [
+  ...SERVICE_CATEGORIES,
+  { name: 'Electronics Repairing', color: '#00B8D9', icon: '🔌' },
+] as const
+
+// Job category -> worker skills allowed to see/bid on it (OR match).
+// Categories not listed here are visible to all workers (existing behaviour).
+export const CATEGORY_SKILL_MATCH: Record<string, string[]> = {
+  'Electronics Repair': ['Electrician', 'AC Technician', 'Electronics Repairing'],
+}
+
 export const PAKISTAN_CITIES = [
   'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad',
   'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala',

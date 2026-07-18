@@ -1,16 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   IoArrowBack, IoCamera, IoCalendar, IoTime, IoLocation,
   IoMic, IoStop, IoPlay, IoPause, IoTrash, IoVideocam, IoClose,
 } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { SERVICE_CATEGORIES } from '../../types'
+import { CUSTOMER_SERVICE_CATEGORIES } from '../../types'
 import LocationPicker from '../../components/LocationPicker'
 import LocationAutocomplete from '../../components/LocationAutocomplete'
 import toast from 'react-hot-toast'
-import { validateJobDescription, validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
+import { validateJobTitle, validateVoiceNote, validateMediaItems, validateJobDate } from '../../lib/validation'
 
 interface MediaItem {
   file: File
@@ -48,10 +48,12 @@ async function compressImage(file: File, maxPx = 1280, quality = 0.82): Promise<
 
 export default function PostJob() {
   const nav = useNavigate()
+  const routerLocation = useLocation()
   const { user } = useAuth()
+  const preselectedCategory = (routerLocation.state as { category?: string } | null)?.category || ''
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
+  const [category, setCategory] = useState(preselectedCategory)
   const [location, setLocation] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
@@ -167,9 +169,9 @@ export default function PostJob() {
   const handleSubmit = async () => {
     const err =
       validateJobTitle(title) ||
-      validateJobDescription(description) ||
       validateVoiceNote(voiceBlob, { required: true }) ||
       (!mediaItems.find(m => m.type === 'image') ? 'Please add a photo showing the problem' : null) ||
+      (!mediaItems.find(m => m.type === 'video') ? 'Please add a video showing the problem' : null) ||
       validateJobDate(date)
     if (err) return toast.error(err)
     if (!category) return toast.error('Please select a category')
@@ -277,7 +279,7 @@ export default function PostJob() {
               className={!category ? 'text-text-muted' : ''}
             >
               <option value="">Select category</option>
-              {SERVICE_CATEGORIES.map(c => (
+              {CUSTOMER_SERVICE_CATEGORIES.map(c => (
                 <option key={c.name} value={c.name}>
                   {c.icon} {c.name}
                 </option>
@@ -286,7 +288,7 @@ export default function PostJob() {
           </div>
           <div>
             <label className="text-sm font-medium text-text-primary mb-1.5 block">
-              Description *
+              Description
             </label>
             <textarea
               rows={3}
@@ -395,7 +397,7 @@ export default function PostJob() {
               <label className="flex-1 cursor-pointer">
                 <div className="h-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary/40 hover:bg-primary/5 transition">
                   <IoVideocam size={22} className="text-text-muted" />
-                  <p className="text-[11px] text-text-muted font-medium">Add Video <span className="text-text-muted">(optional)</span></p>
+                  <p className="text-[11px] text-text-muted font-medium">Add Video <span className="text-red-500">*</span></p>
                 </div>
                 <input type="file" accept="video/*" className="hidden" onChange={e => addMedia(e, 'video')} />
               </label>
