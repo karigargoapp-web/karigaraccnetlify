@@ -217,6 +217,17 @@ export interface Dispute {
   created_at: string
 }
 
+export const DISPUTE_REASONS = [
+  "Worker doesn't know the work",
+  'Worker did not show up',
+  'Worker misbehaved / unprofessional',
+  'Work quality is poor',
+  'Price / cost disagreement',
+  'Safety concern at site',
+  'Job abandoned midway',
+  'Other',
+] as const
+
 export interface AdminAction {
   id: string
   admin_id: string

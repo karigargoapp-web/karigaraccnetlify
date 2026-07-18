@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabase'
 import {
   IoGrid, IoPeople, IoBriefcase, IoWarning, IoWallet,
   IoTrendingUp, IoFlag, IoMenu, IoClose, IoLogOut,
@@ -21,6 +22,20 @@ const NAV = [
 function Sidebar({ onClose }: { onClose?: () => void }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const [openDisputes, setOpenDisputes] = useState(0)
+
+  const fetchOpenDisputes = useCallback(async () => {
+    const { count } = await supabase.from('disputes').select('*', { count: 'exact', head: true }).eq('status', 'open')
+    setOpenDisputes(count || 0)
+  }, [])
+
+  useEffect(() => {
+    fetchOpenDisputes()
+    const channel = supabase.channel('admin-sidebar-disputes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'disputes' }, fetchOpenDisputes)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [fetchOpenDisputes])
 
   async function handleSignOut() {
     await signOut()
@@ -60,7 +75,12 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
               }`
             }>
             <item.icon className="text-lg flex-shrink-0" />
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.to === '/admin/disputes' && openDisputes > 0 && (
+              <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shrink-0">
+                {openDisputes}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

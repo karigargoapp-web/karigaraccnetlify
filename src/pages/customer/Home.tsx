@@ -39,7 +39,7 @@ export default function CustomerHome() {
     const el = categoryScrollRef.current
     if (!el) return
     let raf: number
-    const speed = 0.35 // px per frame — slow, premium feel
+    const speed = 0.65 // px per frame — slow, premium feel
     const step = () => {
       if (!isPausedRef.current && el) {
         const half = el.scrollWidth / 2

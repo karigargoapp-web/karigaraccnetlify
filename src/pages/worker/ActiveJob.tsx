@@ -5,7 +5,8 @@ import L from 'leaflet'
 import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import type { Job } from '../../types'
+import DisputeBanner from '../../components/DisputeBanner'
+import type { Job, Dispute } from '../../types'
 import toast from 'react-hot-toast'
 
 const STATES = ['bidAccepted', 'inspectionDone', 'workCostProposed', 'workCostAccepted', 'completed'] as const
@@ -43,6 +44,7 @@ export default function WorkerActiveJob() {
   const { jobId } = useParams()
   const { user } = useAuth()
   const [job, setJob] = useState<Job | null>(null)
+  const [dispute, setDispute] = useState<Dispute | null>(null)
   const [workCost, setWorkCost] = useState('')
   const [sharing, setSharing] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -52,19 +54,30 @@ export default function WorkerActiveJob() {
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null)
   const locationInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const fetchDispute = async () => {
+    if (!jobId) return
+    const { data } = await supabase.from('disputes').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    setDispute(data as Dispute | null)
+  }
+
   useEffect(() => {
     if (!jobId) return
     const fetchJob = async () => {
       const { data } = await supabase.from('jobs').select('*').eq('id', jobId).single()
       if (data) setJob(data as Job)
       setLoading(false)
+      if ((data as Job)?.status === 'disputed') fetchDispute()
     }
     fetchJob()
 
     const channel = supabase
       .channel(`worker-job-${jobId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${jobId}` },
-        (payload) => setJob(payload.new as Job))
+        (payload) => {
+          const newJob = payload.new as Job
+          setJob(newJob)
+          if (newJob.status === 'disputed') fetchDispute()
+        })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -359,6 +372,8 @@ export default function WorkerActiveJob() {
         )}
 
         {/* State-based actions */}
+        {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
+
         {job.status === 'bidAccepted' && (
           <div className="card p-4 text-center">
             <p className="text-sm font-semibold text-primary">🚗 Head to the job location</p>

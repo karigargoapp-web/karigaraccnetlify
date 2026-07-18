@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar, IoCloseCircle, IoGift, IoWallet } from 'react-icons/io5'
+import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoCall, IoStar, IoCloseCircle, IoGift, IoWallet, IoWarning } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import WorkerTrackingMap from '../../components/WorkerTrackingMap'
-import type { Job } from '../../types'
+import RaiseDisputeModal from '../../components/RaiseDisputeModal'
+import DisputeBanner from '../../components/DisputeBanner'
+import type { Job, Dispute } from '../../types'
 import toast from 'react-hot-toast'
 
 const STATES = ['bidAccepted', 'inspectionDone', 'workCostProposed', 'workCostAccepted', 'completed'] as const
@@ -40,6 +42,10 @@ export default function CustomerActiveJob() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
+  // Dispute
+  const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [dispute, setDispute] = useState<Dispute | null>(null)
+
   const fetchWalletAndEscrow = async () => {
     if (!user || !jobId) return
     const [walletRes, escrowRes] = await Promise.all([
@@ -56,11 +62,18 @@ export default function CustomerActiveJob() {
     }
   }
 
+  const fetchDispute = async () => {
+    if (!jobId) return
+    const { data } = await supabase.from('disputes').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    setDispute(data as Dispute | null)
+  }
+
   useEffect(() => {
     if (!jobId || !user) return
     supabase.from('jobs').select('*').eq('id', jobId).single().then(({ data }) => {
       if (data) setJob(data as Job)
       setLoading(false)
+      if ((data as Job)?.status === 'disputed') fetchDispute()
     })
     fetchWalletAndEscrow()
     const channel = supabase.channel(`job-customer-${jobId}`)
@@ -70,6 +83,7 @@ export default function CustomerActiveJob() {
           setJob(newJob)
           if (newJob.status === 'workCostProposed') toast('💰 Worker proposed work cost — please review!', { duration: 5000 })
           if (newJob.status === 'inProgress') fetchWalletAndEscrow()
+          if (newJob.status === 'disputed') fetchDispute()
         })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -175,6 +189,7 @@ export default function CustomerActiveJob() {
   }
 
   const canCancel = job && ['bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
+  const canDispute = job && !['completed', 'cancelled', 'disputed', 'workCostRejected'].includes(job.status)
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Loading...</div>
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Job not found</div>
@@ -191,6 +206,12 @@ export default function CustomerActiveJob() {
           <button onClick={() => nav(-1)}><IoArrowBack size={24} className="text-white" /></button>
           <div className="flex-1"><h1 className="text-white text-xl font-medium">Job Tracking</h1></div>
           <div className="flex items-center gap-2">
+            {canDispute && (
+              <button onClick={() => setShowDisputeModal(true)}
+                className="flex items-center gap-1 bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-xl">
+                <IoWarning size={14} /> Dispute
+              </button>
+            )}
             {canCancel && (
               <button onClick={() => setShowCancelConfirm(true)}
                 className="flex items-center gap-1 bg-red-500/80 text-white text-xs font-medium px-3 py-1.5 rounded-xl">
@@ -298,6 +319,9 @@ export default function CustomerActiveJob() {
             {job.status === 'bidAccepted' && <p className="text-xs text-warning">⏳ Worker is on the way to inspect...</p>}
           </div>
         </div>
+
+        {/* Disputed */}
+        {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
 
         {/* Step 1: Inspection */}
         {job.status === 'bidAccepted' && (
@@ -450,6 +474,17 @@ export default function CustomerActiveJob() {
             </div>
           </div>
         </div>
+      )}
+      {/* ── RAISE DISPUTE MODAL ── */}
+      {showDisputeModal && job && (
+        <RaiseDisputeModal
+          job={job}
+          onClose={() => setShowDisputeModal(false)}
+          onSubmitted={() => {
+            setShowDisputeModal(false)
+            fetchDispute()
+          }}
+        />
       )}
     </div>
   )
