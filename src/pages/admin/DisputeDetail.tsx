@@ -120,8 +120,8 @@ export default function AdminDisputeDetail() {
         toast.success('Dispute settled successfully')
       }
       navigate('/admin/disputes')
-    } catch {
-      toast.error('Failed to resolve dispute. Please try again.')
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to resolve dispute. Please try again.')
     } finally {
       setSubmitting(false)
     }
