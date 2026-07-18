@@ -102,10 +102,12 @@ export default function AdminDisputeDetail() {
         await supabase.from('jobs').update({ status:'inProgress', paused_at:null }).eq('id',dispute.job_id)
         await supabase.from('disputes').update({ status:'resolved', resolution_type:'continue', admin_notes:adminNotes, resolved_by:user?.id, resolved_at:new Date().toISOString() }).eq('id',disputeId)
         await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'dispute_resolved_continue', entity_type:'dispute', entity_id:disputeId, notes:adminNotes })
-        await supabase.from('notifications').insert([
-          { user_id:job.customer_id, type:'system', title:'Dispute Resolved - Job Continues', body:adminNotes },
-          { user_id:job.worker_id, type:'system', title:'Dispute Resolved - Job Continues', body:adminNotes },
-        ])
+        const recipients = [job.customer_id, job.worker_id].filter(Boolean)
+        if (recipients.length) {
+          await supabase.from('notifications').insert(
+            recipients.map(user_id => ({ user_id, type:'system', title:'Dispute Resolved - Job Continues', body:adminNotes }))
+          )
+        }
         toast.success('Job resumed successfully')
       } else {
         const total = escrow?.total_locked||0
@@ -113,10 +115,12 @@ export default function AdminDisputeDetail() {
         const { error } = await supabase.rpc('fn_dispute_settle', { p_job_id:dispute.job_id, p_settled_amount:settled, p_resolution:resolution, p_admin_id:user?.id, p_notes:adminNotes })
         if (error) throw error
         await supabase.from('jobs').update({ status:'cancelled', admin_note:adminNotes }).eq('id',dispute.job_id)
-        await supabase.from('notifications').insert([
-          { user_id:job.customer_id, type:'system', title:'Dispute Settled', body:adminNotes },
-          { user_id:job.worker_id, type:'system', title:'Dispute Settled', body:adminNotes },
-        ])
+        const recipients = [job.customer_id, job.worker_id].filter(Boolean)
+        if (recipients.length) {
+          await supabase.from('notifications').insert(
+            recipients.map(user_id => ({ user_id, type:'system', title:'Dispute Settled', body:adminNotes }))
+          )
+        }
         toast.success('Dispute settled successfully')
       }
       navigate('/admin/disputes')
