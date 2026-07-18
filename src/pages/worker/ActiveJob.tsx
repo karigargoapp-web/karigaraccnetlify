@@ -2,10 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
-import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall } from 'react-icons/io5'
+import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall, IoWarning } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import DisputeBanner from '../../components/DisputeBanner'
+import RaiseDisputeModal from '../../components/RaiseDisputeModal'
 import type { Job, Dispute } from '../../types'
 import toast from 'react-hot-toast'
 
@@ -49,6 +50,7 @@ export default function WorkerActiveJob() {
   const [sharing, setSharing] = useState(true)
   const [loading, setLoading] = useState(true)
   const [showDirDialog, setShowDirDialog] = useState(false)
+  const [showDisputeModal, setShowDisputeModal] = useState(false)
   /** 'idle' | 'requesting' | 'sending' | 'ok' | 'error' — for UI + debugging */
   const [locSync, setLocSync] = useState<'idle' | 'requesting' | 'sending' | 'ok' | 'error'>('idle')
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null)
@@ -172,6 +174,7 @@ export default function WorkerActiveJob() {
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-surface text-sm text-text-muted">Job not found</div>
 
   const hasCoords = Boolean(job.latitude && job.longitude)
+  const canDispute = !['completed', 'cancelled', 'disputed', 'workCostRejected'].includes(job.status)
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -182,6 +185,9 @@ export default function WorkerActiveJob() {
         </div>
         <button onClick={() => nav(`/chat/${jobId}`)} className="text-white"><IoChatbubble size={22} /></button>
         <button onClick={() => toast('Call feature coming soon')} className="text-white"><IoCall size={22} /></button>
+        {canDispute && (
+          <button onClick={() => setShowDisputeModal(true)} className="text-white ml-1"><IoWarning size={20} /></button>
+        )}
       </div>
 
       <div className="flex-1 px-5 py-5 space-y-4 overflow-y-auto pb-6">
@@ -475,6 +481,18 @@ export default function WorkerActiveJob() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── RAISE DISPUTE MODAL ── */}
+      {showDisputeModal && job && (
+        <RaiseDisputeModal
+          job={job}
+          onClose={() => setShowDisputeModal(false)}
+          onSubmitted={() => {
+            setShowDisputeModal(false)
+            fetchDispute()
+          }}
+        />
       )}
     </div>
   )

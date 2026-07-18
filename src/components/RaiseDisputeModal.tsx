@@ -24,6 +24,9 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
     setSubmitting(true)
     try {
       const fullReason = details.trim() ? `${reason}: ${details.trim()}` : reason
+      const isWorkerRaising = user.id === job.worker_id
+      const raiserName = isWorkerRaising ? job.worker_name : job.customer_name
+      const otherPartyId = isWorkerRaising ? job.customer_id : job.worker_id
 
       const { data: dispute, error } = await supabase
         .from('disputes')
@@ -39,12 +42,12 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
       }).eq('id', job.id)
 
       const notifyTargets: { user_id: string; type: 'system'; title: string; body: string }[] = []
-      if (job.worker_id) {
+      if (otherPartyId) {
         notifyTargets.push({
-          user_id: job.worker_id,
+          user_id: otherPartyId,
           type: 'system',
           title: 'Dispute Raised on Job',
-          body: `The customer raised a dispute on "${job.title}". The job is paused pending admin review.`,
+          body: `${isWorkerRaising ? 'The worker' : 'The customer'} raised a dispute on "${job.title}". The job is paused pending admin review.`,
         })
       }
       const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin')
@@ -52,7 +55,7 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
         user_id: a.id,
         type: 'system',
         title: 'New Dispute Raised',
-        body: `${job.customer_name} raised a dispute on "${job.title}": ${reason}`,
+        body: `${raiserName} raised a dispute on "${job.title}": ${reason}`,
       }))
       if (notifyTargets.length) await supabase.from('notifications').insert(notifyTargets)
 
@@ -85,7 +88,9 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
         <div className="bg-surface rounded-xl p-4 mb-4 space-y-1.5">
           <p className="text-sm font-semibold text-text-primary">{job.title}</p>
           <p className="text-xs text-text-secondary">{job.category} · {job.location}</p>
-          {job.worker_name && <p className="text-xs text-text-secondary">Worker: {job.worker_name}</p>}
+          {user?.id === job.worker_id
+            ? <p className="text-xs text-text-secondary">Customer: {job.customer_name}</p>
+            : job.worker_name && <p className="text-xs text-text-secondary">Worker: {job.worker_name}</p>}
           <p className="text-xs text-text-muted">Job ID: {job.id.slice(0, 8)}</p>
         </div>
 
