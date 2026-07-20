@@ -62,7 +62,7 @@ export default function MyJobs() {
   }
 
   const canCancelJob = (job: Job) => {
-    return ['pending', 'bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
+    return job.status === 'pending'
   }
 
   const filtered = jobs.filter(j => {
@@ -79,6 +79,7 @@ export default function MyJobs() {
     if (s === 'completed') return <span className="pill-completed text-[10px] font-medium">Done</span>
     if (s === 'cancelled') return <span className="pill-rejected text-[10px] font-medium">Cancelled</span>
     if (s === 'disputed') return <span className="pill-rejected text-[10px] font-medium">Dispute Raised</span>
+    if (s === 'cancellationRequested') return <span className="pill-rejected text-[10px] font-medium">Cancellation Request Sent</span>
     return <span className="pill-active text-[10px] font-medium">In Progress</span>
   }
 

@@ -54,6 +54,7 @@ const STATUS_LABELS: Record<string, string> = {
   workCostAccepted: 'Work in progress',
   completed: 'Job completed',
   disputed: 'Dispute Raised',
+  cancellationRequested: 'Cancellation Request Sent',
 }
 
 export default function TrackingScreen() {

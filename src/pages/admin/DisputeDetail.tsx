@@ -97,18 +97,24 @@ export default function AdminDisputeDetail() {
   async function resolveDispute() {
     if (!adminNotes.trim()) { toast.error('Please add resolution notes'); return }
     setSubmitting(true)
+    const isCancellation = dispute.type === 'cancellation'
     try {
       if (resolution === 'continue') {
-        await supabase.from('jobs').update({ status:'inProgress', paused_at:null }).eq('id',dispute.job_id)
+        const restoreStatus = dispute.status_before || 'inProgress'
+        await supabase.from('jobs').update({ status: restoreStatus, paused_at:null }).eq('id',dispute.job_id)
         await supabase.from('disputes').update({ status:'resolved', resolution_type:'continue', admin_notes:adminNotes, resolved_by:user?.id, resolved_at:new Date().toISOString() }).eq('id',disputeId)
         await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'dispute_resolved_continue', entity_type:'dispute', entity_id:disputeId, notes:adminNotes })
         const recipients = [job.customer_id, job.worker_id].filter(Boolean)
         if (recipients.length) {
           await supabase.from('notifications').insert(
-            recipients.map(user_id => ({ user_id, type:'system', title:'Dispute Resolved - Job Continues', body:adminNotes }))
+            recipients.map(user_id => ({
+              user_id, type:'system',
+              title: isCancellation ? 'Cancellation Request Rejected — Job Continues' : 'Dispute Resolved - Job Continues',
+              body: adminNotes,
+            }))
           )
         }
-        toast.success('Job resumed successfully')
+        toast.success(isCancellation ? 'Request rejected — job resumed' : 'Job resumed successfully')
       } else {
         const total = escrow?.total_locked||0
         const settled = resolution==='partial' ? Math.round(total*settledPct/100) : 0
@@ -118,10 +124,14 @@ export default function AdminDisputeDetail() {
         const recipients = [job.customer_id, job.worker_id].filter(Boolean)
         if (recipients.length) {
           await supabase.from('notifications').insert(
-            recipients.map(user_id => ({ user_id, type:'system', title:'Dispute Settled', body:adminNotes }))
+            recipients.map(user_id => ({
+              user_id, type:'system',
+              title: isCancellation ? 'Cancellation Approved' : 'Dispute Settled',
+              body: adminNotes,
+            }))
           )
         }
-        toast.success('Dispute settled successfully')
+        toast.success(isCancellation ? 'Cancellation approved' : 'Dispute settled successfully')
       }
       navigate('/admin/disputes')
     } catch (e: unknown) {
@@ -146,18 +156,20 @@ export default function AdminDisputeDetail() {
       </button>
 
       <div className="bg-red-50 border border-red-200 rounded-xl p-5">
-        <h1 className="text-lg font-bold text-red-900 mb-1">Dispute: {job.title}</h1>
+        <h1 className="text-lg font-bold text-red-900 mb-1">
+          {dispute.type === 'cancellation' ? 'Cancellation Request' : 'Dispute'}: {job.title}
+        </h1>
         <div className="flex items-center gap-3 text-sm text-red-600 flex-wrap">
           <span>👤 {job.customer_name}</span>
           {job.worker_name && <><span>→</span><span>🔧 {job.worker_name}</span></>}
           {job.city && <span>📍 {job.city}</span>}
         </div>
         <div className="mt-3 p-3 bg-white/60 rounded-lg">
-          <p className="text-xs font-medium text-red-600 mb-1">Dispute Reason:</p>
+          <p className="text-xs font-medium text-red-600 mb-1">{dispute.type === 'cancellation' ? 'Cancellation Reason:' : 'Dispute Reason:'}</p>
           <p className="text-sm text-red-800">{dispute.reason}</p>
           <DisputeMediaView photo_url={dispute.photo_url} voice_url={dispute.voice_url} video_url={dispute.video_url} />
         </div>
-        <p className="text-xs text-red-400 mt-2">Raised {new Date(dispute.created_at).toLocaleString()}</p>
+        <p className="text-xs text-red-400 mt-2">Raised by {dispute.raised_by === job.worker_id ? 'worker' : 'customer'} · {new Date(dispute.created_at).toLocaleString()}</p>
       </div>
 
       {escrow && (
@@ -231,7 +243,11 @@ export default function AdminDisputeDetail() {
           <h2 className="font-semibold text-gray-900">Choose Resolution</h2>
 
           <div className="space-y-3">
-            {([
+            {(dispute.type === 'cancellation' ? [
+              { value:'continue', label:'Reject Request — Job Continues', desc:'Cancellation denied — job resumes from where it was', color:'border-green-200 bg-green-50' },
+              { value:'partial', label:'Approve — Partial Refund', desc:'Pay worker for portion of work completed, refund the rest', color:'border-yellow-200 bg-yellow-50' },
+              { value:'cancel', label:'Approve — Full Refund', desc:'Worker gets nothing, customer fully refunded, job cancelled', color:'border-red-200 bg-red-50' },
+            ] as const : [
               { value:'continue', label:'Continue Job', desc:'Resolve misunderstanding — job resumes immediately', color:'border-green-200 bg-green-50' },
               { value:'partial', label:'Partial Settlement', desc:'Pay worker for portion of work completed', color:'border-yellow-200 bg-yellow-50' },
               { value:'cancel', label:'Cancel & Full Refund', desc:'Worker gets nothing, customer fully refunded', color:'border-red-200 bg-red-50' },
@@ -284,7 +300,9 @@ export default function AdminDisputeDetail() {
 
       {dispute.status === 'resolved' && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-5">
-          <p className="font-semibold text-green-800">This dispute has been resolved</p>
+          <p className="font-semibold text-green-800">
+            This {dispute.type === 'cancellation' ? 'cancellation request' : 'dispute'} has been resolved
+          </p>
           <p className="text-sm text-green-700 mt-1 capitalize">Resolution: {dispute.resolution_type}</p>
           {dispute.settled_amount > 0 && <p className="text-sm text-green-700">Settled amount: ₨{dispute.settled_amount.toLocaleString()}</p>}
           {dispute.admin_notes && <p className="text-sm text-green-700 mt-1">{dispute.admin_notes}</p>}

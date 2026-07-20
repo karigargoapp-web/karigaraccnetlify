@@ -42,12 +42,9 @@ export default function CustomerActiveJob() {
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
-  // Cancel
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
-
-  // Dispute
+  // Dispute / Cancellation
   const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
   const [dispute, setDispute] = useState<Dispute | null>(null)
 
   const fetchWalletAndEscrow = async () => {
@@ -77,7 +74,7 @@ export default function CustomerActiveJob() {
     supabase.from('jobs').select('*').eq('id', jobId).single().then(({ data }) => {
       if (data) setJob(data as Job)
       setLoading(false)
-      if ((data as Job)?.status === 'disputed') fetchDispute()
+      if (['disputed', 'cancellationRequested'].includes((data as Job)?.status)) fetchDispute()
     })
     fetchWalletAndEscrow()
     const channel = supabase.channel(`job-customer-${jobId}`)
@@ -87,7 +84,7 @@ export default function CustomerActiveJob() {
           setJob(newJob)
           if (newJob.status === 'workCostProposed') toast('💰 Worker proposed work cost — please review!', { duration: 5000 })
           if (newJob.status === 'inProgress') fetchWalletAndEscrow()
-          if (newJob.status === 'disputed') fetchDispute()
+          if (['disputed', 'cancellationRequested'].includes(newJob.status)) fetchDispute()
         })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -185,19 +182,8 @@ export default function CustomerActiveJob() {
     else nav('/customer/home')
   }
 
-  const cancelJob = async () => {
-    if (!job) return
-    setCancelling(true)
-    const { error } = await supabase.rpc('fn_cancel_job', { p_job_id: job.id, p_customer_id: job.customer_id })
-    setCancelling(false)
-    setShowCancelConfirm(false)
-    if (error) return toast.error('Failed to cancel: ' + error.message)
-    toast.success('Job cancelled. Any locked funds refunded.')
-    nav('/customer/home', { replace: true })
-  }
-
-  const canCancel = job && ['bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
-  const canDispute = job && !['completed', 'cancelled', 'disputed', 'workCostRejected'].includes(job.status)
+  const canRequestCancellation = job && ['bidAccepted', 'inspectionDone', 'proceedRequested', 'workCostProposed', 'workCostRejected'].includes(job.status)
+  const canDispute = job && !['completed', 'cancelled', 'disputed', 'cancellationRequested', 'workCostRejected'].includes(job.status)
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Loading...</div>
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-[#f5f5f5] text-sm text-text-muted">Job not found</div>
@@ -221,8 +207,8 @@ export default function CustomerActiveJob() {
                 <IoWarning size={14} /> Dispute
               </button>
             )}
-            {canCancel && (
-              <button onClick={() => setShowCancelConfirm(true)}
+            {canRequestCancellation && (
+              <button onClick={() => setShowCancelModal(true)}
                 className="flex items-center gap-1 bg-red-500/80 text-white text-xs font-medium px-3 py-1.5 rounded-xl">
                 <IoCloseCircle size={14} /> Cancel
               </button>
@@ -329,9 +315,9 @@ export default function CustomerActiveJob() {
           </div>
         </div>
 
-        {/* Disputed */}
-        {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
-        {job.status === 'disputed' && dispute && <DisputeThread dispute={dispute} job={job} />}
+        {/* Disputed / Cancellation Requested */}
+        {(job.status === 'disputed' || job.status === 'cancellationRequested') && <DisputeBanner dispute={dispute} />}
+        {(job.status === 'disputed' || job.status === 'cancellationRequested') && dispute && <DisputeThread dispute={dispute} job={job} />}
 
         {/* Step 1: Inspection */}
         {job.status === 'bidAccepted' && (
@@ -475,32 +461,27 @@ export default function CustomerActiveJob() {
         </div>
       )}
 
-      {/* ── CANCEL CONFIRMATION ── */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-              <IoCloseCircle size={26} className="text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-text-primary text-center mb-2">Cancel Job?</h3>
-            <p className="text-sm text-text-secondary text-center mb-6">The job will be cancelled. Any locked funds will be refunded.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowCancelConfirm(false)} className="flex-1 py-3 border border-border rounded-xl text-sm font-medium">Keep Job</button>
-              <button onClick={cancelJob} disabled={cancelling}
-                className="flex-1 py-3 bg-red-500 text-white rounded-xl text-sm font-medium disabled:opacity-50">
-                {cancelling ? 'Cancelling...' : 'Yes, Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* ── RAISE DISPUTE MODAL ── */}
       {showDisputeModal && job && (
         <RaiseDisputeModal
           job={job}
+          type="dispute"
           onClose={() => setShowDisputeModal(false)}
           onSubmitted={() => {
             setShowDisputeModal(false)
+            fetchDispute()
+          }}
+        />
+      )}
+
+      {/* ── CANCELLATION REQUEST MODAL ── */}
+      {showCancelModal && job && (
+        <RaiseDisputeModal
+          job={job}
+          type="cancellation"
+          onClose={() => setShowCancelModal(false)}
+          onSubmitted={() => {
+            setShowCancelModal(false)
             fetchDispute()
           }}
         />

@@ -7,18 +7,20 @@ export default function AdminDisputes() {
   const navigate = useNavigate()
   const [disputes, setDisputes] = useState<any[]>([])
   const [tab, setTab] = useState<'open'|'resolved'>('open')
+  const [typeFilter, setTypeFilter] = useState<'all'|'dispute'|'cancellation'>('all')
   const [loading, setLoading] = useState(true)
 
   const fetchDisputes = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
+    let query = supabase
       .from('disputes')
       .select('*, jobs(title,customer_name,worker_name,inspection_charges,work_cost_total,city,status), users!disputes_raised_by_fkey(name,email)')
       .eq('status', tab)
-      .order('created_at',{ascending:false})
+    if (typeFilter !== 'all') query = query.eq('type', typeFilter)
+    const { data } = await query.order('created_at',{ascending:false})
     if (data) setDisputes(data)
     setLoading(false)
-  }, [tab])
+  }, [tab, typeFilter])
 
   useEffect(() => { fetchDisputes() }, [fetchDisputes])
 
@@ -50,6 +52,19 @@ export default function AdminDisputes() {
         ))}
       </div>
 
+      <div className="flex gap-2">
+        {([
+          { value: 'all', label: 'All' },
+          { value: 'dispute', label: 'Disputes' },
+          { value: 'cancellation', label: 'Cancellations' },
+        ] as const).map(f => (
+          <button key={f.value} onClick={() => setTypeFilter(f.value)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${typeFilter===f.value ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -71,14 +86,19 @@ export default function AdminDisputes() {
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900">{d.jobs?.title || 'Unknown Job'}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-gray-900">{d.jobs?.title || 'Unknown Job'}</p>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${d.type === 'cancellation' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
+                      {d.type === 'cancellation' ? 'Cancellation' : 'Dispute'}
+                    </span>
+                  </div>
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
                     <span>👤 {d.jobs?.customer_name}</span>
                     {d.jobs?.worker_name && <span>🔧 {d.jobs?.worker_name}</span>}
                     {d.jobs?.city && <span>📍 {d.jobs?.city}</span>}
                   </div>
                   <div className="mt-2 p-3 bg-red-50 rounded-lg">
-                    <p className="text-xs font-medium text-red-600 mb-1">Dispute Reason:</p>
+                    <p className="text-xs font-medium text-red-600 mb-1">{d.type === 'cancellation' ? 'Cancellation Reason:' : 'Dispute Reason:'}</p>
                     <p className="text-sm text-red-800">{d.reason}</p>
                   </div>
                   {d.resolution_type && (
@@ -97,7 +117,7 @@ export default function AdminDisputes() {
               {tab==='open' && (
                 <button onClick={() => navigate(`/admin/disputes/${d.id}`)}
                   className="mt-4 w-full py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors">
-                  Resolve This Dispute →
+                  {d.type === 'cancellation' ? 'Review Cancellation Request →' : 'Resolve This Dispute →'}
                 </button>
               )}
             </div>

@@ -75,7 +75,7 @@ export default function AdminWorkerDetail() {
 
   const STATUS_COLOR: Record<string,string> = {
     completed:'text-green-600', cancelled:'text-red-400', pending:'text-gray-400',
-    inProgress:'text-teal-600', paused:'text-orange-500', disputed:'text-red-600',
+    inProgress:'text-teal-600', paused:'text-orange-500', disputed:'text-red-600', cancellationRequested:'text-orange-500',
   }
 
   return (

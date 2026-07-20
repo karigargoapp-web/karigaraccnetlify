@@ -10,7 +10,7 @@ const STATUS_COLOR: Record<string,string> = {
   pending:'bg-gray-100 text-gray-600', bidAccepted:'bg-blue-100 text-blue-700',
   inspectionDone:'bg-purple-100 text-purple-700', workCostProposed:'bg-yellow-100 text-yellow-700',
   workCostAccepted:'bg-emerald-100 text-emerald-700', inProgress:'bg-teal-100 text-teal-700',
-  paused:'bg-orange-100 text-orange-700', disputed:'bg-red-100 text-red-700',
+  paused:'bg-orange-100 text-orange-700', disputed:'bg-red-100 text-red-700', cancellationRequested:'bg-orange-100 text-orange-700',
   completed:'bg-green-100 text-green-800', cancelled:'bg-gray-100 text-gray-500',
 }
 

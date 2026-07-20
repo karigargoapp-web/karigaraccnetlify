@@ -10,7 +10,7 @@ const STATUS_GROUPS: Record<Tab, string[]> = {
   all: [],
   active: ['pending','bidAccepted','inspectionDone','workCostProposed','workCostAccepted','inProgress'],
   paused: ['paused'],
-  disputed: ['disputed'],
+  disputed: ['disputed','cancellationRequested'],
   completed: ['completed'],
   cancelled: ['cancelled'],
 }
@@ -24,6 +24,7 @@ const STATUS_COLOR: Record<string, string> = {
   inProgress: 'bg-teal-100 text-teal-700',
   paused: 'bg-orange-100 text-orange-700',
   disputed: 'bg-red-100 text-red-700',
+  cancellationRequested: 'bg-orange-100 text-orange-700',
   completed: 'bg-green-100 text-green-800',
   cancelled: 'bg-gray-100 text-gray-500',
 }

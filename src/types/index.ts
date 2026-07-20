@@ -52,6 +52,7 @@ export type JobStatus =
   | 'inProgress'
   | 'paused'
   | 'disputed'
+  | 'cancellationRequested'
   | 'completed'
   | 'cancelled'
 
@@ -68,6 +69,7 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   inProgress: 'In Progress',
   paused: 'Paused',
   disputed: 'Dispute Raised',
+  cancellationRequested: 'Cancellation Request Sent',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
@@ -217,6 +219,7 @@ export interface Escrow {
 
 export type DisputeStatus = 'open' | 'resolved' | 'cancelled'
 export type DisputeResolution = 'continue' | 'partial' | 'cancel'
+export type DisputeType = 'dispute' | 'cancellation'
 
 export interface Dispute {
   id: string
@@ -224,6 +227,8 @@ export interface Dispute {
   raised_by: string
   reason: string
   status: DisputeStatus
+  type: DisputeType
+  status_before?: JobStatus
   resolution_type?: DisputeResolution
   settled_amount?: number
   admin_notes?: string
@@ -255,6 +260,26 @@ export const DISPUTE_REASONS = [
   'Work quality is poor',
   'Safety concern at site',
   'Job abandoned midway',
+  'Other',
+] as const
+
+export const CUSTOMER_CANCEL_REASONS = [
+  'Worker is taking too long to arrive',
+  'Found another worker / service',
+  'No longer need this service',
+  'Worker asked for unreasonable price',
+  'Communication issue with worker',
+  'Changed my mind',
+  'Other',
+] as const
+
+export const WORKER_CANCEL_REASONS = [
+  'Customer is unreachable',
+  'Customer location is inaccessible or incorrect',
+  'Job is outside my skill / scope',
+  'Safety concern at site',
+  'Personal emergency',
+  'Customer is asking for unreasonable changes',
   'Other',
 ] as const
 

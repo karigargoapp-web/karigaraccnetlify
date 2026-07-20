@@ -101,6 +101,7 @@ export default function WorkerMessages() {
     if (s === 'workCostAccepted') return 'Approved'
     if (s === 'completed') return 'Done'
     if (s === 'disputed') return 'Dispute Raised'
+    if (s === 'cancellationRequested') return 'Cancellation Request Sent'
     return s
   }
 

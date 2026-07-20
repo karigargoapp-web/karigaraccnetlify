@@ -72,6 +72,7 @@ export default function CustomerHome() {
     if (s === 'pending') return <span className="pill-pending">Bidding</span>
     if (s === 'completed') return <span className="pill-completed">Completed</span>
     if (s === 'disputed') return <span className="pill-rejected">Dispute Raised</span>
+    if (s === 'cancellationRequested') return <span className="pill-rejected">Cancellation Request Sent</span>
     return <span className="pill-active">In Progress</span>
   }
 

@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import type { Job, Bid } from '../../types'
 
-type TabKey = 'placed' | 'active' | 'completed'
+type TabKey = 'placed' | 'active' | 'completed' | 'cancelled'
 
 export default function MyBids() {
   const nav = useNavigate()
@@ -48,6 +48,7 @@ export default function MyBids() {
 
   const activeJobs = assignedJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && j.status !== 'workCostRejected')
   const completedJobs = assignedJobs.filter(j => j.status === 'completed' || j.status === 'workCostRejected')
+  const cancelledJobs = assignedJobs.filter(j => j.status === 'cancelled')
 
   const statusBadge = (s: string) => {
     if (s === 'bidAccepted')
@@ -80,6 +81,12 @@ export default function MyBids() {
           Dispute Raised
         </span>
       )
+    if (s === 'cancellationRequested')
+      return (
+        <span className="text-xs font-medium px-2 py-1 rounded-lg bg-orange-100 text-orange-700">
+          Cancellation Request Sent
+        </span>
+      )
     return (
       <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-text-muted">
         {s}
@@ -91,6 +98,7 @@ export default function MyBids() {
     { key: 'placed', label: 'Bid Placed', count: placedBids.length },
     { key: 'active', label: 'In Progress', count: activeJobs.length },
     { key: 'completed', label: 'Completed', count: completedJobs.length },
+    { key: 'cancelled', label: 'Cancelled', count: cancelledJobs.length },
   ]
 
   return (
@@ -211,7 +219,8 @@ export default function MyBids() {
               </div>
             ))
           )
-        ) : completedJobs.length === 0 ? (
+        ) : tab === 'completed' ? (
+          completedJobs.length === 0 ? (
           <p className="text-center text-sm text-text-muted py-8">No completed jobs yet</p>
         ) : (
           completedJobs.map(job => (
@@ -242,6 +251,27 @@ export default function MyBids() {
                 >
                   View Details
                 </button>
+              </div>
+            </div>
+          ))
+          )
+        ) : cancelledJobs.length === 0 ? (
+          <p className="text-center text-sm text-text-muted py-8">No cancelled jobs</p>
+        ) : (
+          cancelledJobs.map(job => (
+            <div key={job.id} className="bg-white rounded-2xl shadow-sm p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <p className="text-sm font-semibold text-text-primary">{job.title}</p>
+                    <span className="text-xs font-medium px-2 py-1 rounded-lg bg-red-100 text-red-700">Cancelled</span>
+                  </div>
+                  <p className="text-xs text-text-muted">{job.customer_name}</p>
+                  <p className="text-xs text-text-muted mt-0.5">{job.location}</p>
+                </div>
+                <p className="text-[10px] text-text-muted shrink-0">
+                  {new Date(job.updated_at).toLocaleDateString()}
+                </p>
               </div>
             </div>
           ))

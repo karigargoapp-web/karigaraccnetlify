@@ -2,23 +2,31 @@ import { useState } from 'react'
 import { IoWarning, IoClose } from 'react-icons/io5'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import { DISPUTE_REASONS } from '../types'
-import type { Job } from '../types'
+import { DISPUTE_REASONS, CUSTOMER_CANCEL_REASONS, WORKER_CANCEL_REASONS } from '../types'
+import type { Job, DisputeType } from '../types'
 import DisputeMediaPicker, { DisputeMedia } from './DisputeMediaPicker'
 import toast from 'react-hot-toast'
 
 interface Props {
   job: Job
+  type: DisputeType
   onClose: () => void
   onSubmitted: (disputeId: string) => void
 }
 
-export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) {
+export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: Props) {
   const { user } = useAuth()
   const [reason, setReason] = useState('')
   const [details, setDetails] = useState('')
   const [media, setMedia] = useState<DisputeMedia>({})
   const [submitting, setSubmitting] = useState(false)
+
+  const isWorkerRaising = user?.id === job.worker_id
+  const isCancellation = type === 'cancellation'
+  const reasonList = isCancellation
+    ? (isWorkerRaising ? WORKER_CANCEL_REASONS : CUSTOMER_CANCEL_REASONS)
+    : DISPUTE_REASONS
+  const newJobStatus = isCancellation ? 'cancellationRequested' : 'disputed'
 
   const submit = async () => {
     if (!reason) return toast.error('Please select a reason')
@@ -26,14 +34,14 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
     setSubmitting(true)
     try {
       const fullReason = details.trim() ? `${reason}: ${details.trim()}` : reason
-      const isWorkerRaising = user.id === job.worker_id
       const raiserName = isWorkerRaising ? job.worker_name : job.customer_name
       const otherPartyId = isWorkerRaising ? job.customer_id : job.worker_id
 
       const { data: dispute, error } = await supabase
         .from('disputes')
         .insert({
-          job_id: job.id, raised_by: user.id, reason: fullReason,
+          job_id: job.id, raised_by: user.id, reason: fullReason, type,
+          status_before: job.status,
           photo_url: media.photo_url, voice_url: media.voice_url, video_url: media.video_url,
         })
         .select()
@@ -41,33 +49,36 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
       if (error) throw error
 
       await supabase.from('jobs').update({
-        status: 'disputed',
+        status: newJobStatus,
         dispute_id: dispute.id,
         paused_at: new Date().toISOString(),
       }).eq('id', job.id)
 
+      const actionLabel = isCancellation ? 'requested cancellation of' : 'raised a dispute on'
       const notifyTargets: { user_id: string; type: 'system'; title: string; body: string }[] = []
       if (otherPartyId) {
         notifyTargets.push({
           user_id: otherPartyId,
           type: 'system',
-          title: 'Dispute Raised on Job',
-          body: `${isWorkerRaising ? 'The worker' : 'The customer'} raised a dispute on "${job.title}". The job is paused pending admin review.`,
+          title: isCancellation ? 'Cancellation Requested on Job' : 'Dispute Raised on Job',
+          body: `${isWorkerRaising ? 'The worker' : 'The customer'} ${actionLabel} "${job.title}". The job is paused pending admin review.`,
         })
       }
       const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin')
       admins?.forEach(a => notifyTargets.push({
         user_id: a.id,
         type: 'system',
-        title: 'New Dispute Raised',
-        body: `${raiserName} raised a dispute on "${job.title}": ${reason}`,
+        title: isCancellation ? 'New Cancellation Request' : 'New Dispute Raised',
+        body: `${raiserName} ${actionLabel} "${job.title}": ${reason}`,
       }))
       if (notifyTargets.length) await supabase.from('notifications').insert(notifyTargets)
 
-      toast.success('Dispute submitted. Our team will review it shortly.')
+      toast.success(isCancellation
+        ? 'Cancellation request submitted. Our team will review it shortly.'
+        : 'Dispute submitted. Our team will review it shortly.')
       onSubmitted(dispute.id)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Failed to raise dispute. Please try again.')
+      toast.error(e instanceof Error ? e.message : 'Failed to submit. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -81,19 +92,21 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
             <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center">
               <IoWarning size={18} className="text-red-500" />
             </div>
-            <h3 className="text-lg font-semibold text-text-primary">Raise a Dispute</h3>
+            <h3 className="text-lg font-semibold text-text-primary">{isCancellation ? 'Request Cancellation' : 'Raise a Dispute'}</h3>
           </div>
           <button onClick={onClose}><IoClose size={22} className="text-text-muted" /></button>
         </div>
         <p className="text-xs text-text-muted mb-4">
-          The job will be paused and funds held in escrow until our team reviews and resolves this dispute.
+          {isCancellation
+            ? 'The job will be paused. Your funds will be locked in escrow — Customer Service will review the case and take action accordingly.'
+            : 'The job will be paused and funds held in escrow until our team reviews and resolves this dispute.'}
         </p>
 
         {/* Auto-fetched job details */}
         <div className="bg-surface rounded-xl p-4 mb-4 space-y-1.5">
           <p className="text-sm font-semibold text-text-primary">{job.title}</p>
           <p className="text-xs text-text-secondary">{job.category} · {job.location}</p>
-          {user?.id === job.worker_id
+          {isWorkerRaising
             ? <p className="text-xs text-text-secondary">Customer: {job.customer_name}</p>
             : job.worker_name && <p className="text-xs text-text-secondary">Worker: {job.worker_name}</p>}
           <p className="text-xs text-text-muted">Job ID: {job.id.slice(0, 8)}</p>
@@ -103,7 +116,7 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
           <label className="text-sm font-medium text-text-primary mb-1.5 block">Reason *</label>
           <select value={reason} onChange={e => setReason(e.target.value)} className={!reason ? 'text-text-muted' : ''}>
             <option value="">Select a reason</option>
-            {DISPUTE_REASONS.map(r => (
+            {reasonList.map(r => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
@@ -111,7 +124,7 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
 
         <div className="mb-5">
           <label className="text-sm font-medium text-text-primary mb-1.5 block">
-            Additional Details <span className="text-text-muted font-normal">(optional)</span>
+            {isCancellation ? 'Describe the reason' : 'Additional Details'} <span className="text-text-muted font-normal">(optional)</span>
           </label>
           <textarea
             rows={3}
@@ -129,10 +142,18 @@ export default function RaiseDisputeModal({ job, onClose, onSubmitted }: Props) 
           <DisputeMediaPicker pathPrefix={`disputes/${job.id}`} media={media} onChange={setMedia} />
         </div>
 
+        {isCancellation && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
+            <p className="text-xs text-amber-800">
+              ⚠️ Your funds will be locked. Customer Service will review the case and take action accordingly.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2">
           <button onClick={submit} disabled={submitting || !reason}
             className="w-full py-3.5 bg-red-500 text-white rounded-2xl text-sm font-semibold disabled:opacity-50">
-            {submitting ? 'Submitting...' : 'Submit Dispute'}
+            {submitting ? 'Submitting...' : isCancellation ? 'Submit Cancellation Request' : 'Submit Dispute'}
           </button>
           <button onClick={onClose} className="w-full py-2 text-xs text-text-muted">Cancel</button>
         </div>

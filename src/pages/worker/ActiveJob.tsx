@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
-import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall, IoWarning } from 'react-icons/io5'
+import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall, IoWarning, IoCloseCircle } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import DisputeBanner from '../../components/DisputeBanner'
@@ -34,7 +34,7 @@ const mapsUrl = (job: Job) =>
     : `https://maps.google.com/maps?q=${encodeURIComponent(job.location)}`
 
 /** How often we POST worker position to Supabase (reduces API load) */
-const BROADCAST_INTERVAL_MS = 10_000
+const BROADCAST_INTERVAL_MS = 5_000
 
 /** GeolocationPositionError.code — do NOT use err.PERMISSION_DENIED (undefined on instance) */
 const GEO_DENIED = 1
@@ -52,6 +52,7 @@ export default function WorkerActiveJob() {
   const [loading, setLoading] = useState(true)
   const [showDirDialog, setShowDirDialog] = useState(false)
   const [showDisputeModal, setShowDisputeModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
   /** 'idle' | 'requesting' | 'sending' | 'ok' | 'error' — for UI + debugging */
   const [locSync, setLocSync] = useState<'idle' | 'requesting' | 'sending' | 'ok' | 'error'>('idle')
   const [lastSentAt, setLastSentAt] = useState<Date | null>(null)
@@ -69,7 +70,7 @@ export default function WorkerActiveJob() {
       const { data } = await supabase.from('jobs').select('*').eq('id', jobId).single()
       if (data) setJob(data as Job)
       setLoading(false)
-      if ((data as Job)?.status === 'disputed') fetchDispute()
+      if (['disputed', 'cancellationRequested'].includes((data as Job)?.status)) fetchDispute()
     }
     fetchJob()
 
@@ -79,7 +80,7 @@ export default function WorkerActiveJob() {
         (payload) => {
           const newJob = payload.new as Job
           setJob(newJob)
-          if (newJob.status === 'disputed') fetchDispute()
+          if (['disputed', 'cancellationRequested'].includes(newJob.status)) fetchDispute()
         })
       .subscribe()
 
@@ -175,7 +176,8 @@ export default function WorkerActiveJob() {
   if (!job) return <div className="min-h-screen flex items-center justify-center bg-surface text-sm text-text-muted">Job not found</div>
 
   const hasCoords = Boolean(job.latitude && job.longitude)
-  const canDispute = !['completed', 'cancelled', 'disputed', 'workCostRejected'].includes(job.status)
+  const canDispute = !['completed', 'cancelled', 'disputed', 'cancellationRequested', 'workCostRejected'].includes(job.status)
+  const canRequestCancellation = !['completed', 'cancelled', 'disputed', 'cancellationRequested', 'workCostRejected'].includes(job.status)
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -188,6 +190,9 @@ export default function WorkerActiveJob() {
         <button onClick={() => toast('Call feature coming soon')} className="text-white"><IoCall size={22} /></button>
         {canDispute && (
           <button onClick={() => setShowDisputeModal(true)} className="text-white ml-1"><IoWarning size={20} /></button>
+        )}
+        {canRequestCancellation && (
+          <button onClick={() => setShowCancelModal(true)} className="text-white ml-1"><IoCloseCircle size={20} /></button>
         )}
       </div>
 
@@ -317,53 +322,14 @@ export default function WorkerActiveJob() {
             </div>
             {sharing && (
               <div className="rounded-xl bg-surface border border-border px-3 py-2.5 space-y-2">
-                <p className="text-[11px] text-text-secondary leading-relaxed">
-                  Allow the browser location prompt. Network tab should show <code className="text-[10px] bg-white px-1 rounded">worker_locations</code> POST every {BROADCAST_INTERVAL_MS / 1000}s.
-                </p>
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   {locSync === 'requesting' && <span className="text-amber-700 font-medium">● Getting GPS…</span>}
                   {locSync === 'sending' && <span className="text-primary font-medium">● Saving to server…</span>}
                   {locSync === 'ok' && lastSentAt && (
                     <span className="text-green-700 font-medium">● Last sent {lastSentAt.toLocaleTimeString()}</span>
                   )}
-                  {locSync === 'error' && <span className="text-red-600 font-medium">● Sync failed — try again</span>}
+                  {locSync === 'error' && <span className="text-red-600 font-medium">● Sync failed — retrying automatically</span>}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!user || !jobId || !navigator.geolocation || job.status !== 'bidAccepted') return
-                    setLocSync('requesting')
-                    navigator.geolocation.getCurrentPosition(
-                      async (pos) => {
-                        setLocSync('sending')
-                        const { error } = await supabase.from('worker_locations').upsert({
-                          user_id: user.id,
-                          job_id: jobId,
-                          latitude: pos.coords.latitude,
-                          longitude: pos.coords.longitude,
-                          updated_at: new Date().toISOString(),
-                        })
-                        if (error) {
-                          toast.error(error.message)
-                          setLocSync('error')
-                          return
-                        }
-                        setLocSync('ok')
-                        setLastSentAt(new Date())
-                        toast.success('Location sent')
-                      },
-                      (err) => {
-                        setLocSync('error')
-                        if (err.code === GEO_DENIED) toast.error('Still blocked — allow location in site settings')
-                        else toast.error('Could not read GPS')
-                      },
-                      { enableHighAccuracy: true, maximumAge: 0, timeout: 25_000 }
-                    )
-                  }}
-                  className="w-full py-2 text-xs font-semibold text-primary border border-primary/30 rounded-xl bg-primary/5"
-                >
-                  Send location now
-                </button>
               </div>
             )}
           </div>
@@ -379,8 +345,8 @@ export default function WorkerActiveJob() {
         )}
 
         {/* State-based actions */}
-        {job.status === 'disputed' && <DisputeBanner dispute={dispute} />}
-        {job.status === 'disputed' && dispute && <DisputeThread dispute={dispute} job={job} />}
+        {(job.status === 'disputed' || job.status === 'cancellationRequested') && <DisputeBanner dispute={dispute} />}
+        {(job.status === 'disputed' || job.status === 'cancellationRequested') && dispute && <DisputeThread dispute={dispute} job={job} />}
 
         {job.status === 'bidAccepted' && (
           <div className="card p-4 text-center">
@@ -489,9 +455,23 @@ export default function WorkerActiveJob() {
       {showDisputeModal && job && (
         <RaiseDisputeModal
           job={job}
+          type="dispute"
           onClose={() => setShowDisputeModal(false)}
           onSubmitted={() => {
             setShowDisputeModal(false)
+            fetchDispute()
+          }}
+        />
+      )}
+
+      {/* ── CANCELLATION REQUEST MODAL ── */}
+      {showCancelModal && job && (
+        <RaiseDisputeModal
+          job={job}
+          type="cancellation"
+          onClose={() => setShowCancelModal(false)}
+          onSubmitted={() => {
+            setShowCancelModal(false)
             fetchDispute()
           }}
         />
