@@ -124,7 +124,9 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
 
         <div className="mb-5">
           <label className="text-sm font-medium text-text-primary mb-1.5 block">
-            {isCancellation ? 'Describe the reason' : 'Additional Details'} <span className="text-text-muted font-normal">(optional)</span>
+            {isCancellation
+              ? 'Describe the reason'
+              : <>Additional Details <span className="text-text-muted font-normal">(optional)</span></>}
           </label>
           <textarea
             rows={3}
@@ -137,7 +139,7 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
 
         <div className="mb-5">
           <label className="text-sm font-medium text-text-primary mb-1.5 block">
-            Evidence <span className="text-text-muted font-normal">(optional)</span>
+            {isCancellation ? 'Evidence' : <>Evidence <span className="text-text-muted font-normal">(optional)</span></>}
           </label>
           <DisputeMediaPicker pathPrefix={`disputes/${job.id}`} media={media} onChange={setMedia} />
         </div>
