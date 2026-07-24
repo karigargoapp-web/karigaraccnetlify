@@ -13,9 +13,10 @@ interface Props {
   pathPrefix: string
   media: DisputeMedia
   onChange: (media: DisputeMedia) => void
+  requireVoiceVideo?: boolean
 }
 
-export default function DisputeMediaPicker({ pathPrefix, media, onChange }: Props) {
+export default function DisputeMediaPicker({ pathPrefix, media, onChange, requireVoiceVideo }: Props) {
   const [uploading, setUploading] = useState(false)
   const [recording, setRecording] = useState(false)
   const [recordSecs, setRecordSecs] = useState(0)
@@ -85,13 +86,13 @@ export default function DisputeMediaPicker({ pathPrefix, media, onChange }: Prop
           <input type="file" accept="image/*" className="hidden" onChange={(e) => pickFile(e, 'photo')} disabled={uploading} />
         </label>
         <label className={`cursor-pointer flex items-center gap-1.5 text-xs font-medium ${uploading ? 'text-text-muted pointer-events-none' : 'text-text-secondary hover:text-primary'}`}>
-          <IoVideocam size={18} /> Video
+          <IoVideocam size={18} /> Video{requireVoiceVideo ? ' *' : ''}
           <input type="file" accept="video/*" className="hidden" onChange={(e) => pickFile(e, 'video')} disabled={uploading} />
         </label>
         <button type="button" onClick={toggleRecording} disabled={uploading}
           className={`flex items-center gap-1.5 text-xs font-medium ${recording ? 'text-red-500' : 'text-text-secondary hover:text-primary'}`}>
           {recording ? <IoStop size={18} /> : <IoMic size={18} />}
-          {recording ? `Stop (${recordSecs}s)` : 'Voice Note'}
+          {recording ? `Stop (${recordSecs}s)` : `Voice Note${requireVoiceVideo ? ' *' : ''}`}
         </button>
         {uploading && <span className="text-xs text-text-muted animate-pulse">Uploading…</span>}
       </div>

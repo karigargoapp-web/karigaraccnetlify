@@ -30,6 +30,8 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
 
   const submit = async () => {
     if (!reason) return toast.error('Please select a reason')
+    if (!media.voice_url) return toast.error('Please attach a voice note')
+    if (!media.video_url) return toast.error('Please attach a video')
     if (!user) return
     setSubmitting(true)
     try {
@@ -139,9 +141,9 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
 
         <div className="mb-5">
           <label className="text-sm font-medium text-text-primary mb-1.5 block">
-            {isCancellation ? 'Evidence' : <>Evidence <span className="text-text-muted font-normal">(optional)</span></>}
+            Evidence
           </label>
-          <DisputeMediaPicker pathPrefix={`disputes/${job.id}`} media={media} onChange={setMedia} />
+          <DisputeMediaPicker pathPrefix={`disputes/${job.id}`} media={media} onChange={setMedia} requireVoiceVideo />
         </div>
 
         {isCancellation && (
@@ -153,7 +155,7 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
         )}
 
         <div className="space-y-2">
-          <button onClick={submit} disabled={submitting || !reason}
+          <button onClick={submit} disabled={submitting || !reason || !media.voice_url || !media.video_url}
             className="w-full py-3.5 bg-red-500 text-white rounded-2xl text-sm font-semibold disabled:opacity-50">
             {submitting ? 'Submitting...' : isCancellation ? 'Submit Cancellation Request' : 'Submit Dispute'}
           </button>
