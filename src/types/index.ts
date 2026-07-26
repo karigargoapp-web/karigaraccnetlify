@@ -343,9 +343,8 @@ export const CATEGORY_SKILL_MATCH: Record<string, string[]> = {
 }
 
 export const PAKISTAN_CITIES = [
-  'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Faisalabad',
-  'Multan', 'Peshawar', 'Quetta', 'Sialkot', 'Gujranwala',
-  'Hyderabad', 'Bahawalpur', 'Sargodha', 'Sukkur', 'Abbottabad',
+  'Karachi', 'Lahore', 'Islamabad', 'Gujranwala', 'Faisalabad',
+  'Rawalpindi', 'Multan',
 ] as const
 
 export const PLATFORM_COMMISSION_RATE = 0.10
