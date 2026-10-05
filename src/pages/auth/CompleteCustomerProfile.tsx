@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { PAKISTAN_CITIES } from '../../types'
 import { normalizePhone, phoneVariants, validatePakistanPhone } from '../../lib/validation'
 import FieldError from '../../components/FieldError'
+import PhoneInput from '../../components/PhoneInput'
 import toast from 'react-hot-toast'
 
 export default function CompleteCustomerProfile() {
@@ -101,14 +102,7 @@ export default function CompleteCustomerProfile() {
 
         <div>
           <label className="text-sm font-medium text-text-primary mb-1.5 block">Phone Number *</label>
-          <input
-            type="tel"
-            placeholder="03XX-XXXXXXX"
-            value={phone}
-            onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 11)); setErrors(p => ({ ...p, phone: '' })) }}
-            className={errors.phone ? 'field-error' : ''}
-            maxLength={11}
-          />
+          <PhoneInput value={phone} onChange={v => { setPhone(v); setErrors(p => ({ ...p, phone: '' })) }} hasError={!!errors.phone} />
           {errors.phone ? <FieldError message={errors.phone} /> : <p className="text-xs text-text-muted mt-1">Format: 03XXXXXXXXX (11 digits)</p>}
         </div>
 

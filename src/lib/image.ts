@@ -31,7 +31,7 @@ export function withTimeout<T>(promise: PromiseLike<T>, ms = 45000, message = 'R
 export async function uploadPublic(bucket: string, path: string, file: File): Promise<string> {
   const { supabase } = await import('./supabase')
   const prepared = await compressImage(file)
-  const { error } = await withTimeout(supabase.storage.from(bucket).upload(path, prepared, { contentType: prepared.type || undefined, upsert: true }))
+  const { error } = await withTimeout(supabase.storage.from(bucket).upload(path, prepared, { contentType: prepared.type || undefined }))
   if (error) throw new Error(`Upload failed: ${error.message}`)
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }

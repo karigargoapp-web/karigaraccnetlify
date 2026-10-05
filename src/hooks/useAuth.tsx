@@ -18,6 +18,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const USER_CACHE_KEY = 'karigargo-user-cache'
+const SB_TOKEN_KEY = 'sb-epekjmfmbgwfonjyhklm-auth-token'
+
+function readCachedUser(): AppUser | null {
+  try {
+    if (!localStorage.getItem(SB_TOKEN_KEY)) return null
+    if (new URLSearchParams(window.location.search).has('code')) return null
+    const raw = localStorage.getItem(USER_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as AppUser) : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedUser(user: AppUser | null) {
+  try {
+    if (!user) { localStorage.removeItem(USER_CACHE_KEY); return }
+    const { cnic: _c, cnic_front_url: _f, cnic_back_url: _b, ...safe } = user as AppUser & { cnic?: unknown; cnic_front_url?: unknown; cnic_back_url?: unknown }
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(safe))
+  } catch { /* storage unavailable */ }
+}
+
 function roleHome(role: string, approvalStatus?: string) {
   if (role === 'customer') return '/customer/home'
   if (role === 'worker') return approvalStatus === 'approved' ? '/worker/dashboard' : '/worker/pending-approval'
@@ -27,8 +49,9 @@ function roleHome(role: string, approvalStatus?: string) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [user, setUser]       = useState<AppUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [cached] = useState<AppUser | null>(readCachedUser)
+  const [user, setUser]       = useState<AppUser | null>(cached)
+  const [loading, setLoading] = useState(cached === null)
   const navigate = useNavigate()
   const navRef = useRef(navigate)
   navRef.current = navigate
@@ -106,8 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Called by nativeAuth after Google OAuth code exchange on APK
-  const handleNativeSessionReady = useCallback(async () => {
-    const { data: { session: sess } } = await supabase.auth.getSession()
+  const handleNativeSessionReady = useCallback(async (passed?: Session | null) => {
+    const sess = passed ?? (await supabase.auth.getSession()).data.session
     if (!sess?.user) return
     setSession(sess)
     const appUser = await fetchAndSetUser(sess.user)
@@ -206,6 +229,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Called directly by Login.tsx / WorkerLogin.tsx after email/password sign-in
   // Bypasses onAuthStateChange entirely — no async race condition
+  useEffect(() => { writeCachedUser(user) }, [user])
+
   const setUserDirectly = (appUser: AppUser, sess: Session) => {
     setSession(sess)
     setUser(appUser)

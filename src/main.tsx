@@ -7,6 +7,18 @@ import { setupNativeAuthListener } from './lib/nativeAuth'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
 
+const LAUNCH_KEY = 'karigargo-launched'
+try {
+  const path = window.location.pathname
+  const keep = ['/email-confirmed', '/reset-password']
+  if (!sessionStorage.getItem(LAUNCH_KEY)) {
+    sessionStorage.setItem(LAUNCH_KEY, '1')
+    if (path !== '/' && !keep.includes(path) && !window.location.search.includes('code=')) {
+      window.history.replaceState({}, '', '/')
+    }
+  }
+} catch {}
+
 setupNativeAuthListener()
 
 if (new URLSearchParams(window.location.search).has('code')) {

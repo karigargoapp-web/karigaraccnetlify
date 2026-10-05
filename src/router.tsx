@@ -126,9 +126,9 @@ export function AppRouter() {
             <Route path="/login" element={<Login />} />
             <Route path="/login/worker" element={<WorkerLogin />} />
             <Route path="/signup/customer" element={<CustomerSignup />} />
+            <Route path="/signup/worker" element={<WorkerSignup />} />
           </Route>
 
-          <Route path="/signup/worker" element={<WorkerSignup />} />
           <Route path="/email-confirmed" element={<EmailConfirmed />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { IoArrowBack, IoCamera, IoCheckmarkCircle, IoCloudUpload, IoClose } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { emailRedirect } from '../../lib/authRedirect'
@@ -20,6 +20,7 @@ import { MAX_WORKER_SKILLS, SKILL_URDU } from '../../lib/skills'
 import { uploadPublic, withTimeout } from '../../lib/image'
 import { useAuth } from '../../hooks/useAuth'
 import FieldError from '../../components/FieldError'
+import PhoneInput from '../../components/PhoneInput'
 import toast from 'react-hot-toast'
 
 const STEPS: { en: string; ur: string }[] = [
@@ -38,9 +39,10 @@ function Bi({ en, ur, required }: { en: string; ur: string; required?: boolean }
   )
 }
 
-export default function WorkerSignup() {
+export default function WorkerSignup({ oauth = false }: { oauth?: boolean }) {
   const nav = useNavigate()
-  const { user, loading: authLoading } = useAuth()
+  const { user, refreshUser } = useAuth()
+  const isOAuth = oauth && !!user
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -61,6 +63,14 @@ export default function WorkerSignup() {
   const [cnic, setCnic] = useState('')
   const [cnicFront, setCnicFront] = useState<File | null>(null)
   const [cnicBack, setCnicBack] = useState<File | null>(null)
+
+  useEffect(() => {
+    if (isOAuth && user) {
+      setName(user.name || '')
+      setEmail(user.email || '')
+      if (user.profile_photo_url) setPhotoPreview(user.profile_photo_url)
+    }
+  }, [isOAuth, user])
 
   const clearError = (key: string) => setErrors(p => (p[key] ? { ...p, [key]: '' } : p))
 
@@ -122,11 +132,13 @@ export default function WorkerSignup() {
   const validateStep = (s: number): Record<string, string> => {
     const next: Record<string, string> = {}
     if (s === 0) {
-      if (!photo) next.photo = 'Please add a profile photo / پروفائل تصویر لگائیں'
-      else { const pe = validateImageFile(photo, { required: true }); if (pe) next.photo = pe }
-      const n = validatePersonName(name); if (n) next.name = n
-      const e = validateEmail(email); if (e) next.email = e
-      const p = validatePassword(password); if (p) next.password = p
+      if (!isOAuth) {
+        if (!photo) next.photo = 'Please add a profile photo / پروفائل تصویر لگائیں'
+        else { const pe = validateImageFile(photo, { required: true }); if (pe) next.photo = pe }
+        const n = validatePersonName(name); if (n) next.name = n
+        const e = validateEmail(email); if (e) next.email = e
+        const p = validatePassword(password); if (p) next.password = p
+      }
       const ph = validatePakistanPhone(phone, { optional: false }); if (ph) next.phone = ph
     }
     if (s === 1) {
@@ -165,6 +177,27 @@ export default function WorkerSignup() {
       if (phoneTaken === true) {
         setErrors({ phone: 'This phone number is already registered. Use a different number or log in.' })
         setStep(0)
+        return
+      }
+
+      if (isOAuth && user) {
+        const ts = Date.now()
+        const [cnicFrontUrl, cnicBackUrl] = await Promise.all([
+          uploadPublic('signup-docs', `cnic/${user.id}_${ts}_front.jpg`, cnicFront!),
+          uploadPublic('signup-docs', `cnic/${user.id}_${ts}_back.jpg`, cnicBack!),
+        ])
+        const profileRes = await withTimeout(supabase.rpc('handle_signup_worker_profile', {
+          p_user_id: user.id, p_skills: skills, p_bio: null,
+          p_cnic: formatCNICDisplay(cnic), p_cnic_front_url: cnicFrontUrl, p_cnic_back_url: cnicBackUrl,
+          p_certificate_urls: null,
+        }))
+        if (profileRes.error) throw profileRes.error
+        const usersRes = await withTimeout(
+          supabase.from('users').update({ city, phone: phoneForDb, profile_complete: true }).eq('id', user.id),
+        )
+        if (usersRes.error) throw usersRes.error
+        await refreshUser()
+        nav('/worker/pending-approval', { replace: true })
         return
       }
 
@@ -230,8 +263,6 @@ export default function WorkerSignup() {
     }
   }
 
-  if (!authLoading && user && !user.profile_complete) return <Navigate to="/complete-profile/worker" replace />
-
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-surface flex flex-col items-center justify-center px-6 text-center animate-fade-in">
@@ -275,6 +306,22 @@ export default function WorkerSignup() {
       <div className="flex-1 px-6 py-6 overflow-y-auto">
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
+            {isOAuth ? (
+              <div className="flex items-center gap-3 bg-surface rounded-2xl px-4 py-3">
+                {photoPreview ? (
+                  <img src={photoPreview} className="w-12 h-12 rounded-full object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="text-primary font-bold text-lg">{name?.[0]}</span>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">{name}</p>
+                  <p className="text-xs text-text-muted">{email}</p>
+                </div>
+              </div>
+            ) : (
+            <>
             <div className="flex justify-center mb-2">
               <div className="flex flex-col items-center gap-3">
                 <div className={`w-24 h-24 rounded-full border-2 border-dashed flex items-center justify-center overflow-hidden ${errors.photo ? 'border-danger bg-red-50' : photoPreview ? 'border-primary bg-primary/5' : 'bg-surface border-border'}`}>
@@ -319,11 +366,11 @@ export default function WorkerSignup() {
                 className={errors.password ? 'field-error' : ''} autoComplete="new-password" />
               {errors.password ? <FieldError message={errors.password} /> : <p className="text-[11px] text-text-muted mt-1 leading-snug">{PASSWORD_HINT}</p>}
             </div>
+            </>
+            )}
             <div>
               <label className="text-sm text-text-secondary mb-1.5 block"><Bi en="Phone Number" ur="فون نمبر" required /></label>
-              <input type="tel" placeholder="03XX-XXXXXXX" value={phone}
-                onChange={e => { setPhone(e.target.value.replace(/[^0-9]/g, '')); clearError('phone') }}
-                className={errors.phone ? 'field-error' : ''} maxLength={11} />
+              <PhoneInput value={phone} onChange={v => { setPhone(v); clearError('phone') }} hasError={!!errors.phone} />
               <FieldError message={errors.phone} />
             </div>
           </div>
@@ -341,7 +388,6 @@ export default function WorkerSignup() {
                 {WORKER_SKILL_CATEGORIES.map(cat => (
                   <button key={cat.name} type="button" onClick={() => toggleSkill(cat.name)}
                     className={`flex items-center gap-2 px-3 py-3 rounded-xl border text-sm transition text-left ${skills.includes(cat.name) ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-text-secondary'}`}>
-                    <span>{cat.icon}</span>
                     <span className="flex flex-col leading-tight">
                       <span>{cat.name}</span>
                       <span dir="rtl" className="text-[11px] text-text-muted">{SKILL_URDU[cat.name]}</span>

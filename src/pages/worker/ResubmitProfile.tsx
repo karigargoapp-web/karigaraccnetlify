@@ -218,7 +218,7 @@ export default function ResubmitProfile() {
                 {WORKER_SKILL_CATEGORIES.map(cat => (
                   <button key={cat.name} type="button" onClick={() => toggleSkill(cat.name)}
                     className={`flex items-center gap-2 px-3 py-3 rounded-xl border text-sm transition ${skills.includes(cat.name) ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-text-secondary'}`}>
-                    <span>{cat.icon}</span><span>{cat.name}</span>
+                    <span>{cat.name}</span>
                     {skills.includes(cat.name) && <IoCheckmarkCircle className="ml-auto text-primary" />}
                   </button>
                 ))}

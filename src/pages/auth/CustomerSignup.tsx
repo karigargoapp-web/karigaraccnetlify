@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { emailRedirect } from '../../lib/authRedirect'
 import { PAKISTAN_CITIES } from '../../types'
 import FieldError from '../../components/FieldError'
+import PhoneInput from '../../components/PhoneInput'
 import {
   PASSWORD_HINT,
   validateEmail,
@@ -292,18 +293,7 @@ export default function CustomerSignup() {
         </div>
         <div>
           <label className="text-sm text-text-secondary mb-1.5 block">Phone Number *</label>
-          <input
-            type="tel"
-            placeholder="03XX-XXXXXXX"
-            value={phone}
-            onChange={e => {
-              const cleaned = e.target.value.replace(/[^0-9]/g, '')
-              setPhone(cleaned)
-              if (errors.phone) setErrors(p => ({ ...p, phone: '' }))
-            }}
-            className={errors.phone ? 'field-error' : ''}
-            maxLength={11}
-          />
+          <PhoneInput value={phone} onChange={v => { setPhone(v); if (errors.phone) setErrors(p => ({ ...p, phone: '' })) }} hasError={!!errors.phone} />
           <FieldError message={errors.phone} />
         </div>
         <div>
