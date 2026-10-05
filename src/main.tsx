@@ -1,3 +1,7 @@
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-700.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -11,13 +15,14 @@ const LAUNCH_KEY = 'karigargo-launched'
 try {
   const path = window.location.pathname
   const keep = ['/email-confirmed', '/reset-password']
-  if (!sessionStorage.getItem(LAUNCH_KEY)) {
-    sessionStorage.setItem(LAUNCH_KEY, '1')
-    if (path !== '/' && !keep.includes(path) && !window.location.search.includes('code=')) {
-      window.history.replaceState({}, '', '/')
-    }
+  const hasCode = window.location.search.includes('code=')
+  const formRoute = /^\/(signup|login|complete-profile|forgot-password)/.test(path)
+  const coldStart = !sessionStorage.getItem(LAUNCH_KEY)
+  sessionStorage.setItem(LAUNCH_KEY, '1')
+  if (path !== '/' && !keep.includes(path) && !hasCode && (coldStart || formRoute)) {
+    window.history.replaceState({}, '', '/')
   }
-} catch {}
+} catch { /* storage unavailable */ }
 
 setupNativeAuthListener()
 

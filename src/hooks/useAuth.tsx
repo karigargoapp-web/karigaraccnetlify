@@ -83,44 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supaUser.email?.split('@')[0] ||
         'User'
 
-      const { data, error: fetchErr } = await supabase
-        .from('users').select('*').eq('id', supaUser.id).maybeSingle()
-      if (fetchErr) throw fetchErr
-
-      if (data) {
-        const updates: Record<string, unknown> = {}
-        if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) { updates.verified = true; data.verified = true }
-        if (!data.profile_photo_url && photo) { updates.profile_photo_url = photo; data.profile_photo_url = photo }
-        setUser(data as AppUser)
-        if (Object.keys(updates).length > 0) void supabase.from('users').update(updates).eq('id', supaUser.id)
-        return data as AppUser
-      }
-
-      if (!isGoogleUser) return null
-
-      const intendedRole = localStorage.getItem('oauth-intended-role')
-      localStorage.removeItem('oauth-intended-role')
-      const role: UserRole = intendedRole === 'worker' ? 'worker' : 'customer'
-
-      const { error: rpcErr } = await supabase.rpc('handle_signup_user', {
-        p_id: supaUser.id, p_name: name, p_email: supaUser.email || '',
-        p_phone: null, p_role: role, p_city: null,
-        p_profile_photo_url: photo, p_verified: true,
+      const intendedRole = isGoogleUser ? localStorage.getItem('oauth-intended-role') : null
+      const { data, error: fetchErr } = await supabase.rpc('fn_get_or_create_profile', {
+        p_role: intendedRole === 'worker' ? 'worker' : 'customer',
+        p_name: name,
+        p_photo: photo,
       })
-      if (rpcErr) throw rpcErr
+      if (fetchErr) throw fetchErr
+      if (isGoogleUser) localStorage.removeItem('oauth-intended-role')
 
-      const [{ data: newData, error: newFetchErr }] = await Promise.all([
-        supabase.from('users').select('*').eq('id', supaUser.id).maybeSingle(),
-        role === 'worker'
-          ? supabase.rpc('handle_signup_worker_profile', {
-              p_user_id: supaUser.id, p_skills: [], p_bio: null,
-              p_cnic: '', p_cnic_front_url: '', p_cnic_back_url: '', p_certificate_urls: null,
-            })
-          : Promise.resolve(null),
-      ])
-      if (newFetchErr) throw newFetchErr
-      if (newData) { setUser(newData as AppUser); return newData as AppUser }
-      return null
+      const row = (Array.isArray(data) ? data[0] : data) as AppUser | undefined
+      if (!row) return null
+      setUser(row)
+      return row
 
     } catch {
       setUser(null)

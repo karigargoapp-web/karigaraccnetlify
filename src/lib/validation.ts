@@ -51,7 +51,7 @@ export function validatePakistanPhone(phone: string, { optional }: { optional: b
   const digits = t.replace(/\D/g, '')
   let n = digits
   if (n.startsWith('92') && n.length >= 12) n = '0' + n.slice(2)
-  if (n.length !== 11) return 'Enter a valid Pakistan mobile (e.g. 03001234567)'
+  if (n.length !== 11) return 'Enter an 11-digit mobile number (e.g. 03001234567)'
   if (!n.startsWith('0')) return 'Mobile must start with 0 (e.g. 03001234567)'
   if (n[1] !== '3') return 'Pakistan mobile must start with 03 (e.g. 03001234567)'
   return null
@@ -163,14 +163,14 @@ export function validateCertificateFile(file: File): string | null {
 }
 
 export function normalizePhone(raw: string): string {
-  const t = raw.trim().replace(/\D/g, '')
-  if (t.startsWith('0') && t.length === 11) return '+92' + t.slice(1)
-  if (t.startsWith('92') && t.length === 12) return '+' + t
-  return raw.trim()
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('92') && digits.length === 12) return '0' + digits.slice(2)
+  if (digits.startsWith('3') && digits.length === 10) return '0' + digits
+  return digits
 }
 
 export function phoneVariants(raw: string): string[] {
   const n = normalizePhone(raw)
-  const local = n.startsWith('+92') ? '0' + n.slice(3) : n
-  return Array.from(new Set([n, local]))
+  const intl = n.startsWith('03') && n.length === 11 ? '+92' + n.slice(1) : n
+  return Array.from(new Set([n, intl]))
 }

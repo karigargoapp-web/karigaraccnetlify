@@ -5,7 +5,7 @@ interface Props {
   placeholder?: string
 }
 
-export default function PhoneInput({ value, onChange, hasError, placeholder = '03XXXXXXXXX' }: Props) {
+export default function PhoneInput({ value, onChange, hasError, placeholder = '03001234567' }: Props) {
   return (
     <input
       type="text"
