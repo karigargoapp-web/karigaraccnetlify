@@ -112,10 +112,10 @@ export default function TrackingScreen() {
       return
     }
 
-    supabase.from('worker_profiles').select('avg_rating, total_jobs')
-      .eq('user_id', workerId).maybeSingle()
-      .then(({ data: wp }) => {
-        if (wp) { setWorkerRating(wp.avg_rating); setWorkerJobs(wp.total_jobs) }
+    supabase.rpc('fn_worker_public', { p_worker: workerId })
+      .then(({ data }) => {
+        const wp = Array.isArray(data) ? data[0] : data
+        if (wp) { setWorkerRating(Number(wp.avg_rating)); setWorkerJobs(Number(wp.total_jobs)) }
       })
 
     supabase.from('worker_locations').select('*')

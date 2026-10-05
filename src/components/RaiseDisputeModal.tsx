@@ -66,7 +66,8 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
           body: `${isWorkerRaising ? 'The worker' : 'The customer'} ${actionLabel} "${job.title}". The job is paused pending Support review.`,
         })
       }
-      const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin')
+      const { data: adminIds } = await supabase.rpc('fn_admin_ids')
+      const admins = (adminIds as string[] | null)?.map(id => ({ id })) ?? []
       admins?.forEach(a => notifyTargets.push({
         user_id: a.id,
         type: 'system',

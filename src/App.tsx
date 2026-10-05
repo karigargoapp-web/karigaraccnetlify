@@ -1,5 +1,6 @@
 import { Toaster } from 'react-hot-toast'
 import { AppRouter } from './router'
+import ErrorBoundary from './components/ErrorBoundary'
 
 export default function App() {
   return (
@@ -11,7 +12,9 @@ export default function App() {
           success: { iconTheme: { primary: '#006600', secondary: '#fff' } },
         }}
       />
-      <AppRouter />
+      <ErrorBoundary>
+        <AppRouter />
+      </ErrorBoundary>
     </>
   )
 }

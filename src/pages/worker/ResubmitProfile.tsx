@@ -8,6 +8,7 @@ import { formatCNICDisplay, validateCNIC, validateImageFile } from '../../lib/va
 import { MAX_WORKER_SKILLS } from '../../lib/skills'
 import { uploadPublic, withTimeout } from '../../lib/image'
 import FieldError from '../../components/FieldError'
+import SignedImage from '../../components/SignedImage'
 import toast from 'react-hot-toast'
 
 interface Profile {
@@ -201,7 +202,7 @@ export default function ResubmitProfile() {
                 </>
               ) : (
                 <div className="relative h-28 rounded-xl overflow-hidden bg-surface">
-                  {f.url && <img src={f.url} className="w-full h-full object-cover opacity-70" />}
+                  {f.url && <SignedImage src={f.url} className="w-full h-full object-cover opacity-70" />}
                   <IoLockClosed className="absolute top-2 right-2 text-text-muted" size={14} />
                 </div>
               )}

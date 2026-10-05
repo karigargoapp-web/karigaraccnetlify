@@ -17,11 +17,12 @@ export default function ViewWorkerProfile() {
     const fetch = async () => {
       const [u, p, r] = await Promise.all([
         supabase.from('users').select('*').eq('id', workerId).maybeSingle(),
-        supabase.from('worker_profiles').select('*').eq('user_id', workerId).maybeSingle(),
+        supabase.rpc('fn_worker_public', { p_worker: workerId }),
         supabase.from('reviews').select('*').eq('worker_id', workerId).order('created_at', { ascending: false }),
       ])
       if (u.data) setWorker(u.data as User)
-      if (p.data) setProfile(p.data as WorkerProfile)
+      const pd = Array.isArray(p.data) ? p.data[0] : p.data
+      if (pd) setProfile(pd as unknown as WorkerProfile)
       if (r.data) setReviews(r.data as Review[])
       setLoading(false)
     }

@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { IoSearch, IoCheckmark, IoClose, IoEye, IoRefresh, IoPersonCircle } from 'react-icons/io5'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../hooks/useAuth'
+import SignedImage from '../../components/SignedImage'
+import { signedDocUrl } from '../../lib/docs'
 
 type Tab = 'pending' | 'approved' | 'rejected'
 
@@ -193,14 +195,14 @@ function WorkerCard({ worker, tab, onApprove, onReject, onView }: any) {
             <p className="text-xs font-medium text-gray-500 mb-2">CNIC Documents</p>
             <div className="flex gap-3">
               {wp.cnic_front_url && (
-                <a href={wp.cnic_front_url} target="_blank" rel="noreferrer" className="group">
-                  <img src={wp.cnic_front_url} alt="CNIC Front" className="w-36 h-22 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity" />
+                <a href={wp.cnic_front_url} onClick={async e => { e.preventDefault(); const u = await signedDocUrl(wp.cnic_front_url); if (u) window.open(u, '_blank', 'noopener,noreferrer') }} className="group cursor-pointer">
+                  <SignedImage src={wp.cnic_front_url} alt="CNIC Front" className="w-36 h-22 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity" />
                   <p className="text-xs text-center text-blue-600 mt-1">Front ↗</p>
                 </a>
               )}
               {wp.cnic_back_url && (
-                <a href={wp.cnic_back_url} target="_blank" rel="noreferrer" className="group">
-                  <img src={wp.cnic_back_url} alt="CNIC Back" className="w-36 h-22 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity" />
+                <a href={wp.cnic_back_url} onClick={async e => { e.preventDefault(); const u = await signedDocUrl(wp.cnic_back_url); if (u) window.open(u, '_blank', 'noopener,noreferrer') }} className="group cursor-pointer">
+                  <SignedImage src={wp.cnic_back_url} alt="CNIC Back" className="w-36 h-22 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity" />
                   <p className="text-xs text-center text-blue-600 mt-1">Back ↗</p>
                 </a>
               )}

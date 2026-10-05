@@ -65,11 +65,6 @@ export default function ReviewWorker() {
         direction: 'customer_to_worker',
       })
       if (error) throw error
-      const { data: reviews } = await supabase.from('reviews').select('rating').eq('worker_id', job.worker_id).eq('direction', 'customer_to_worker')
-      if (reviews && reviews.length > 0) {
-        const avg = reviews.reduce((s: number, r: { rating: number }) => s + r.rating, 0) / reviews.length
-        await supabase.from('worker_profiles').update({ avg_rating: Math.round(avg * 10) / 10, total_jobs: reviews.length }).eq('user_id', job.worker_id)
-      }
       setSubmitted(true)
       setTimeout(() => nav('/customer/home'), 2000)
     } catch (err: any) {

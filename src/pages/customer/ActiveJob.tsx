@@ -151,7 +151,6 @@ export default function CustomerActiveJob() {
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points.')
       return toast.error(error.message)
     }
-    await supabase.from('jobs').update({ status: 'inProgress' }).eq('id', jobId)
     setStoredWorkDiscount(discount)
     toast.success('Work started! Payment will be collected when you mark job complete.')
     await fetchWalletAndEscrow()

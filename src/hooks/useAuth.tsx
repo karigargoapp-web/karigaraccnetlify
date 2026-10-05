@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { registerSessionReadyCallback } from '../lib/nativeAuth'
@@ -29,7 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [user, setUser]       = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
-  const nav = useNavigate()
+  const navigate = useNavigate()
+  const navRef = useRef(navigate)
+  navRef.current = navigate
 
   const fetchAndSetUser = useCallback(async (supaUser: SupaUser): Promise<AppUser | null> => {
     try {
@@ -117,16 +119,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         toast_error('This account is a worker account. Please use the worker login.')
         await supabase.auth.signOut({ scope: 'local' })
         setUser(null); setSession(null)
-        nav('/login', { replace: true })
+        navRef.current('/login', { replace: true })
         return
       }
       if (!appUser.profile_complete) {
-        nav(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
+        navRef.current(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
       } else {
-        nav(roleHome(appUser.role, appUser.approval_status), { replace: true })
+        navRef.current(roleHome(appUser.role, appUser.approval_status), { replace: true })
       }
     }
-  }, [fetchAndSetUser, nav])
+  }, [fetchAndSetUser])
 
   useEffect(() => {
     // Register callback for native APK Google login
@@ -145,29 +147,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // 3. SIGNED_OUT — clear state
     // Email/password login: handled directly in Login.tsx via setUserDirectly (no race)
     // APK Google login: handled via registerSessionReadyCallback in nativeAuth.ts
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
       if (!mounted) return
       if (event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') return
       if (event === 'INITIAL_SESSION' && code) return
-      // Skip SIGNED_IN on web — handled by login pages directly
-      // Skip SIGNED_IN on native — handled by handleNativeSessionReady callback
       if (event === 'SIGNED_IN') return
 
       if (event === 'SIGNED_OUT') {
         setSession(null)
         setUser(null)
-        if (mounted) setLoading(false)
+        setLoading(false)
         return
       }
 
-      // INITIAL_SESSION only — restore persisted session on page load
-      setSession(sess)
-      if (sess?.user) {
-        await fetchAndSetUser(sess.user)
-      } else {
-        setUser(null)
-      }
-      if (mounted) setLoading(false)
+      setTimeout(async () => {
+        if (!mounted) return
+        setSession(sess)
+        if (sess?.user) {
+          await fetchAndSetUser(sess.user)
+        } else {
+          setUser(null)
+        }
+        if (mounted) setLoading(false)
+      }, 0)
     })
 
     // Web OAuth code exchange (Google login on browser/web)
@@ -187,9 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false)
             if (appUser) {
               if (!appUser.profile_complete) {
-                nav(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
+                navRef.current(appUser.role === 'worker' ? '/complete-profile/worker' : '/complete-profile/customer', { replace: true })
               } else {
-                nav(roleHome(appUser.role, appUser.approval_status), { replace: true })
+                navRef.current(roleHome(appUser.role, appUser.approval_status), { replace: true })
               }
             }
           }
@@ -200,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return () => { mounted = false; subscription.unsubscribe() }
-  }, [fetchAndSetUser, nav])
+  }, [fetchAndSetUser])
 
   // Called directly by Login.tsx / WorkerLogin.tsx after email/password sign-in
   // Bypasses onAuthStateChange entirely — no async race condition
@@ -226,8 +228,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (sess?.user) await fetchAndSetUser(sess.user)
   }
 
+  const value = useMemo(
+    () => ({ session, user, role: user?.role ?? null, loading, signOut, refreshUser, setUserDirectly }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, user, loading],
+  )
+
   return (
-    <AuthContext.Provider value={{ session, user, role: user?.role ?? null, loading, signOut, refreshUser, setUserDirectly }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

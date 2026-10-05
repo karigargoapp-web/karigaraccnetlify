@@ -84,7 +84,17 @@ export default function WorkerDashboard() {
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    const refreshPending = () => {
+      if (document.visibilityState !== 'visible') return
+      supabase.from('jobs').select('*').eq('status', 'pending').eq('city', workerCity).order('created_at', { ascending: false })
+        .then(({ data }) => { if (data) setJobs(data as Job[]) })
+    }
+    document.addEventListener('visibilitychange', refreshPending)
+
+    return () => {
+      document.removeEventListener('visibilitychange', refreshPending)
+      supabase.removeChannel(channel)
+    }
   }, [user])
 
   // Jobs in categories with a skill match rule are only shown to workers who

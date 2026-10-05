@@ -6,6 +6,8 @@ import { IoArrowBack, IoCheckmark, IoClose, IoStar, IoBriefcase, IoWallet } from
 import toast from 'react-hot-toast'
 import { JOB_STATUS_LABELS } from '../../types'
 import { invokeMailer } from '../../lib/mailer'
+import SignedImage from '../../components/SignedImage'
+import { signedDocUrl } from '../../lib/docs'
 
 const FIX_FIELDS = [
   { key: 'photo', label: 'Profile photo' },
@@ -228,14 +230,14 @@ export default function AdminWorkerDetail() {
               <p className="text-xs text-gray-500 mb-2">CNIC Documents <span className="text-blue-500">(click to enlarge)</span></p>
               <div className="flex gap-3">
                 {profile.cnic_front_url && (
-                  <div className="cursor-pointer" onClick={() => setLightbox(profile.cnic_front_url)}>
-                    <img src={profile.cnic_front_url} alt="Front" className="w-40 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"/>
+                  <div className="cursor-pointer" onClick={async () => setLightbox(await signedDocUrl(profile.cnic_front_url))}>
+                    <SignedImage src={profile.cnic_front_url} alt="Front" className="w-40 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"/>
                     <p className="text-xs text-center text-gray-500 mt-1">Front</p>
                   </div>
                 )}
                 {profile.cnic_back_url && (
-                  <div className="cursor-pointer" onClick={() => setLightbox(profile.cnic_back_url)}>
-                    <img src={profile.cnic_back_url} alt="Back" className="w-40 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"/>
+                  <div className="cursor-pointer" onClick={async () => setLightbox(await signedDocUrl(profile.cnic_back_url))}>
+                    <SignedImage src={profile.cnic_back_url} alt="Back" className="w-40 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"/>
                     <p className="text-xs text-center text-gray-500 mt-1">Back</p>
                   </div>
                 )}

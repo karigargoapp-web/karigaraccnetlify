@@ -107,15 +107,14 @@ export default function CustomerSignup() {
     setLoading(true)
 
     const phoneForDb = normalizePhone(phone)
-    const { data: existingPhone, error: phoneCheckError } = await supabase
-      .from('users').select('id').in('phone', phoneVariants(phone)).limit(1)
+    const { data: phoneTaken, error: phoneCheckError } = await supabase.rpc('fn_phone_exists', { p_phones: phoneVariants(phone) })
     if (phoneCheckError) {
       toast.error('Could not verify phone number. Please try again.')
       setLoading(false)
       submitLockRef.current = false
       return
     }
-    if (existingPhone && existingPhone.length > 0) {
+    if (phoneTaken === true) {
       setErrors({ phone: 'This phone number is already registered. Use a different number or log in.' })
       setLoading(false)
       submitLockRef.current = false

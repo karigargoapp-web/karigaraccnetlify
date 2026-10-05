@@ -31,9 +31,8 @@ export default function CompleteCustomerProfile() {
 
     try {
       const phoneForDb = normalizePhone(phone)
-      const { data: existing } = await supabase
-        .from('users').select('id').in('phone', phoneVariants(phone)).neq('id', user.id).limit(1)
-      if (existing && existing.length > 0) {
+      const { data: phoneTaken } = await supabase.rpc('fn_phone_exists', { p_phones: phoneVariants(phone) })
+      if (phoneTaken === true) {
         setErrors({ phone: 'This phone number is already registered with another account.' })
         return
       }

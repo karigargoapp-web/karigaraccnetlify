@@ -40,13 +40,20 @@ export default function WorkerProfilePage() {
     })
   }, [user])
 
-  const toggleSkill = (s: string) => setSkills(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+  const toggleSkill = (s: string) => setSkills(prev => {
+    if (prev.includes(s)) return prev.filter(x => x !== s)
+    if (prev.length >= 2) { toast.error('You can select a maximum of 2 skills'); return prev }
+    return [...prev, s]
+  })
 
   const handleSave = async () => {
     if (!user) return
     setSaving(true)
-    await supabase.from('users').update({ name, phone, city }).eq('id', user.id)
-    await supabase.from('worker_profiles').update({ skills, bio }).eq('user_id', user.id)
+    const [u, w] = await Promise.all([
+      supabase.from('users').update({ name, phone, city }).eq('id', user.id),
+      supabase.from('worker_profiles').update({ skills, bio }).eq('user_id', user.id),
+    ])
+    if (u.error || w.error) { setSaving(false); return toast.error('Could not save your profile. Please try again.') }
     await refreshUser()
     setSaving(false); setEditing(false)
     toast.success('Profile updated')

@@ -158,11 +158,11 @@ export default function WorkerSignup() {
 
     try {
       const phoneForDb = normalizePhone(phone)
-      const { data: existingPhone, error: phoneErr } = await withTimeout(
-        supabase.from('users').select('id').in('phone', phoneVariants(phone)).limit(1),
+      const { data: phoneTaken, error: phoneErr } = await withTimeout(
+        supabase.rpc('fn_phone_exists', { p_phones: phoneVariants(phone) }),
       )
       if (phoneErr) throw new Error('Could not verify phone number. Please try again.')
-      if (existingPhone && existingPhone.length > 0) {
+      if (phoneTaken === true) {
         setErrors({ phone: 'This phone number is already registered. Use a different number or log in.' })
         setStep(0)
         return

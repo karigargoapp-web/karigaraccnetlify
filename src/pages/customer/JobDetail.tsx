@@ -103,19 +103,12 @@ export default function JobDetail() {
     })
     if (error) {
       setAccepting(null)
-      if (error.message.includes('insufficient_balance')) return toast.error('Insufficient wallet balance. Please top up.')
+      if (error.message.includes('insufficient_balance')) return toast.error(`Top up your wallet to accept this bid. You need at least ₨${MAX_INSPECTION_CHARGE} in your wallet.`)
+      if (error.message.includes('job_not_pending') || error.message.includes('bid_not_found')) return toast.error('This bid is no longer available.')
       if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20).')
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')
       return toast.error(error.message)
     }
-    await supabase.from('bids').update({ status: 'accepted' }).eq('id', bid.id)
-    await supabase.from('bids').update({ status: 'rejected' }).eq('job_id', jobId).neq('id', bid.id)
-    await supabase.from('jobs').update({
-      status: 'bidAccepted',
-      worker_id: bid.worker_id,
-      worker_name: bid.worker_name,
-      inspection_charges: bid.inspection_charges,
-    }).eq('id', jobId)
     if (discount > 0) toast.success(`Bid accepted! ₨${discount} reward discount will be applied at inspection.`)
     else toast.success('Bid accepted!')
     nav(`/customer/active-job/${jobId}`)

@@ -80,10 +80,8 @@ export default function CompleteWorkerProfile() {
 
     try {
       const phoneForDb = normalizePhone(phone)
-      const { data: existing } = await withTimeout(
-        supabase.from('users').select('id').in('phone', phoneVariants(phone)).neq('id', user.id).limit(1),
-      )
-      if (existing && existing.length > 0) {
+      const { data: phoneTaken } = await withTimeout(supabase.rpc('fn_phone_exists', { p_phones: phoneVariants(phone) }))
+      if (phoneTaken === true) {
         setErrors({ phone: 'This phone number is already registered with another account.' })
         setStep(0)
         return
@@ -95,16 +93,16 @@ export default function CompleteWorkerProfile() {
         uploadPublic('signup-docs', `cnic/${user.id}_${ts}_back.jpg`, cnicBack!),
       ])
 
-      const [usersRes, profileRes] = await withTimeout(Promise.all([
-        supabase.from('users').update({ city, phone: phoneForDb, profile_complete: true }).eq('id', user.id),
-        supabase.rpc('handle_signup_worker_profile', {
-          p_user_id: user.id, p_skills: skills, p_bio: null,
-          p_cnic: formatCNICDisplay(cnic), p_cnic_front_url: cnicFrontUrl, p_cnic_back_url: cnicBackUrl,
-          p_certificate_urls: null,
-        }),
-      ]))
-      if (usersRes.error) throw usersRes.error
+      const profileRes = await withTimeout(supabase.rpc('handle_signup_worker_profile', {
+        p_user_id: user.id, p_skills: skills, p_bio: null,
+        p_cnic: formatCNICDisplay(cnic), p_cnic_front_url: cnicFrontUrl, p_cnic_back_url: cnicBackUrl,
+        p_certificate_urls: null,
+      }))
       if (profileRes.error) throw profileRes.error
+      const usersRes = await withTimeout(
+        supabase.from('users').update({ city, phone: phoneForDb, profile_complete: true }).eq('id', user.id),
+      )
+      if (usersRes.error) throw usersRes.error
 
       await refreshUser()
       nav('/worker/pending-approval', { replace: true })
