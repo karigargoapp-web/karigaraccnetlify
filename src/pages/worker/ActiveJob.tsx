@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/mapTiles'
 import { IoArrowBack, IoCheckmarkCircle, IoChatbubble, IoLocation, IoNavigate, IoCall, IoWarning, IoCloseCircle } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -48,7 +49,7 @@ export default function WorkerActiveJob() {
   const [job, setJob] = useState<Job | null>(null)
   const [dispute, setDispute] = useState<Dispute | null>(null)
   const [workCost, setWorkCost] = useState('')
-  const [sharing, setSharing] = useState(true)
+  const deniedToastShown = useRef(false)
   const [loading, setLoading] = useState(true)
   const [showDirDialog, setShowDirDialog] = useState(false)
   const [showDisputeModal, setShowDisputeModal] = useState(false)
@@ -92,7 +93,7 @@ export default function WorkerActiveJob() {
 
   // Live location → only during bidAccepted; stops automatically after inspection is marked done
   useEffect(() => {
-    if (!liveTrackingPhase || !sharing || !user || !jobId) {
+    if (!liveTrackingPhase || !user || !jobId) {
       if (locationInterval.current) {
         clearInterval(locationInterval.current)
         locationInterval.current = null
@@ -103,7 +104,6 @@ export default function WorkerActiveJob() {
 
     if (!navigator.geolocation) {
       toast.error('This browser does not support GPS. Customer cannot track you.')
-      setSharing(false)
       return
     }
 
@@ -129,15 +129,12 @@ export default function WorkerActiveJob() {
         },
         (err) => {
           setLocSync('error')
-          if (err.code === GEO_DENIED) {
-            toast.error('Location blocked — tap below or allow in the browser address bar so the customer can see you.')
-            setSharing(false)
-          } else if (err.code === GEO_TIMEOUT) {
-            toast.error('GPS timed out. Move to an open area or try again.')
-          } else if (err.code === GEO_UNAVAILABLE) {
-            toast.error('Position unavailable. Check GPS is on.')
-          } else {
-            toast.error('Could not read your position.')
+          if (err.code === GEO_DENIED && !deniedToastShown.current) {
+            deniedToastShown.current = true
+            toast.error('Location is blocked. Allow location access so the customer can see you.')
+          } else if (err.code === GEO_UNAVAILABLE && !deniedToastShown.current) {
+            deniedToastShown.current = true
+            toast.error('Position unavailable. Check that GPS is on.')
           }
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 25_000 }
@@ -152,7 +149,7 @@ export default function WorkerActiveJob() {
         locationInterval.current = null
       }
     }
-  }, [liveTrackingPhase, sharing, user, jobId])
+  }, [liveTrackingPhase, user, jobId])
 
   const isRejected = job?.status === 'workCostRejected'
   const currentStates = isRejected ? REJECTED_STATES : STATES
@@ -277,7 +274,7 @@ export default function WorkerActiveJob() {
                 scrollWheelZoom={false}
                 attributionControl={false}
               >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
+                <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
                 <Marker position={[job.latitude!, job.longitude!]} icon={jobPin} />
               </MapContainer>
             </div>
@@ -294,53 +291,17 @@ export default function WorkerActiveJob() {
           </div>
         </div>
 
-        {/* Live Location — only during "Bid Accepted" (en route to inspection). Ends when inspection is marked done. */}
-        {job.status === 'bidAccepted' ? (
-          <div className="card p-4 space-y-3">
-            <p className="text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-              On the way to inspection — your live location is shared with the customer. It stops automatically after you mark inspection done.
-            </p>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${sharing && locSync === 'ok' ? 'bg-green-500 animate-pulse' : sharing ? 'bg-amber-400' : 'bg-gray-300'}`} />
-                <div className="min-w-0">
-                  <p className="text-sm text-text-primary font-medium">Live Location</p>
-                  <p className="text-[11px] text-text-muted">
-                    {sharing
-                      ? `Sending every ${BROADCAST_INTERVAL_MS / 1000}s while you travel to the job`
-                      : 'Off — customer cannot track you'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSharing(s => !s)}
-                className={`w-12 h-6 rounded-full transition relative shrink-0 ${sharing ? 'bg-primary' : 'bg-border'}`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all shadow ${sharing ? 'left-[26px]' : 'left-0.5'}`} />
-              </button>
+        {liveTrackingPhase && (
+          <div className="card p-4 flex items-center gap-3">
+            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${locSync === 'ok' ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`} />
+            <div className="min-w-0">
+              <p className="text-sm text-text-primary font-medium">Live location on</p>
+              <p className="text-[11px] text-text-muted">
+                {locSync === 'ok' && lastSentAt
+                  ? `Customer can see you · last updated ${lastSentAt.toLocaleTimeString()}`
+                  : 'Your location is shared with the customer automatically'}
+              </p>
             </div>
-            {sharing && (
-              <div className="rounded-xl bg-surface border border-border px-3 py-2.5 space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                  {locSync === 'requesting' && <span className="text-amber-700 font-medium">● Getting GPS…</span>}
-                  {locSync === 'sending' && <span className="text-primary font-medium">● Saving to server…</span>}
-                  {locSync === 'ok' && lastSentAt && (
-                    <span className="text-green-700 font-medium">● Last sent {lastSentAt.toLocaleTimeString()}</span>
-                  )}
-                  {locSync === 'error' && <span className="text-red-600 font-medium">● Sync failed — retrying automatically</span>}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="card p-4 bg-gray-50 border border-border">
-            <p className="text-sm font-medium text-text-primary">Live location</p>
-            <p className="text-xs text-text-muted mt-1.5 leading-relaxed">
-              {job.status === 'inspectionDone' || ['workCostProposed', 'workCostAccepted', 'workCostRejected'].includes(job.status)
-                ? 'Live tracking is off. It was only active while you were travelling to the inspection (Bid Accepted).'
-                : 'Live tracking is only active after the customer accepts your bid and you are on the way to the inspection.'}
-            </p>
           </div>
         )}
 

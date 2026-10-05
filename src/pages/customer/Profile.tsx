@@ -163,7 +163,6 @@ export default function CustomerProfile() {
               </div>
               <div>
                 <p className="text-sm font-medium text-text-primary">{t('notifications')}</p>
-                <p className="text-xs text-text-muted">{t('receiveJobUpdates')}</p>
               </div>
             </div>
             {/* Toggle Switch */}

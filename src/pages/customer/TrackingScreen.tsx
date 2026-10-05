@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import { LeafletTrackingMarker } from 'react-leaflet-tracking-marker'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/mapTiles'
 import { IoArrowBack, IoChatbubble, IoStar, IoLocate } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import type { Job, WorkerLocation } from '../../types'
@@ -70,7 +71,7 @@ export default function TrackingScreen() {
   const [jobLoading, setJobLoading] = useState(true)
   const posRef = useRef<[number, number] | null>(null)
 
-  const liveTrackingPhase = job?.status === 'bidAccepted'
+  const liveTrackingPhase = job ? !['pending', 'completed', 'cancelled', 'workCostRejected'].includes(job.status) && Boolean(job.worker_id) : false
 
   /* ── Step 1: fetch job + subscribe to job status changes ── */
   useEffect(() => {
@@ -187,8 +188,7 @@ export default function TrackingScreen() {
           <p className="text-4xl mb-4">📍</p>
           <p className="text-lg font-semibold text-text-primary">Live location is not available</p>
           <p className="text-sm text-text-secondary mt-3 leading-relaxed">
-            Live tracking only works while the worker is on the way to your place for inspection (after you accept their bid).
-            Once inspection starts, live sharing stops automatically.
+            Live tracking becomes available once you accept a worker's bid and stays on until the job is finished.
           </p>
           <button
             type="button"
@@ -212,7 +212,7 @@ export default function TrackingScreen() {
         style={{ width: '100%', height: '100%' }}
         zoomControl={false}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
+        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
 
         {/* Animated, rotating worker marker */}
         {workerPos && (
@@ -312,7 +312,7 @@ export default function TrackingScreen() {
               <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm animate-pulse">📡</div>
               <div>
                 <p className="text-sm font-medium text-amber-800">Waiting for worker's location</p>
-                <p className="text-xs text-amber-600 mt-0.5">Worker's live location will appear once they open the job</p>
+                <p className="text-xs text-amber-600 mt-0.5">Worker's live location will appear shortly</p>
               </div>
             </div>
           )}

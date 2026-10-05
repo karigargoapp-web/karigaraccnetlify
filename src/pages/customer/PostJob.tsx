@@ -72,6 +72,19 @@ export default function PostJob() {
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null)
   const [voicePreviewUrl, setVoicePreviewUrl] = useState('')
   const [isPlayingVoice, setIsPlayingVoice] = useState(false)
+  const uploadsRef = useRef<Map<File | Blob, Promise<string>>>(new Map())
+  const sessionTsRef = useRef(Date.now())
+
+  const startUpload = (key: File | Blob, build: () => Promise<{ path: string; body: File | Blob; contentType?: string }>) => {
+    const task = (async () => {
+      const { path, body, contentType } = await build()
+      const { error: upErr } = await supabase.storage.from('job-images').upload(path, body, contentType ? { contentType } : undefined)
+      if (upErr) throw new Error(`Upload failed: ${upErr.message}`)
+      return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
+    })()
+    task.catch(() => { uploadsRef.current.delete(key) })
+    uploadsRef.current.set(key, task)
+  }
 
   useEffect(() => {
     return () => {
@@ -91,6 +104,12 @@ export default function PostJob() {
       }
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        if (user) {
+          startUpload(blob, async () => ({
+            path: `voices/${user.id}_${sessionTsRef.current}_${Math.random().toString(36).slice(2, 8)}.webm`,
+            body: new File([blob], 'voice.webm', { type: 'audio/webm' }),
+          }))
+        }
         setVoiceBlob(blob)
         setVoicePreviewUrl(URL.createObjectURL(blob))
         stream.getTracks().forEach(t => t.stop())
@@ -130,6 +149,7 @@ export default function PostJob() {
     audioRef.current?.pause()
     audioRef.current = null
     if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl)
+    if (voiceBlob) uploadsRef.current.delete(voiceBlob)
     setVoiceBlob(null)
     setVoicePreviewUrl('')
     setIsPlayingVoice(false)
@@ -139,10 +159,18 @@ export default function PostJob() {
   const addMedia = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const file = e.target.files?.[0]
     if (!file) return
-    // Replace any existing item of the same type (1 image + 1 video max)
+    if (user) {
+      startUpload(file, async () => {
+        const body = type === 'image' ? await compressImage(file) : file
+        const rand = Math.random().toString(36).slice(2, 8)
+        return type === 'image'
+          ? { path: `jobs/img_${user.id}_${sessionTsRef.current}_${rand}.jpg`, body, contentType: 'image/jpeg' }
+          : { path: `jobs/video_${user.id}_${sessionTsRef.current}_${rand}.mp4`, body }
+      })
+    }
     setMediaItems(prev => {
       const existing = prev.find(m => m.type === type)
-      if (existing) URL.revokeObjectURL(existing.preview)
+      if (existing) { URL.revokeObjectURL(existing.preview); uploadsRef.current.delete(existing.file) }
       const filtered = prev.filter(m => m.type !== type)
       return [...filtered, { file, preview: URL.createObjectURL(file), type }]
     })
@@ -152,6 +180,7 @@ export default function PostJob() {
   const removeMedia = (index: number) => {
     setMediaItems(prev => {
       URL.revokeObjectURL(prev[index].preview)
+      uploadsRef.current.delete(prev[index].file)
       return prev.filter((_, i) => i !== index)
     })
   }
@@ -180,33 +209,31 @@ export default function PostJob() {
     setLoading(true)
 
     try {
-      const ts = Date.now()
-
-      const uploadWithTimeout = <T,>(promise: Promise<T>, ms = 30000): Promise<T> =>
+      const withTimeout = <T,>(promise: Promise<T>, ms = 90000): Promise<T> =>
         Promise.race([promise, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Upload timed out. Check your connection.')), ms))])
 
-      const mediaUploadTasks = mediaItems.map(async (item, i) => {
-        const fileToUpload = item.type === 'image' ? await compressImage(item.file) : item.file
-        const ext = item.type === 'video' ? 'mp4' : 'jpg'
-        const prefix = item.type === 'video' ? 'video' : 'img'
-        const path = `jobs/${prefix}_${user.id}_${ts}_${i}.${ext}`
-        const { error: upErr } = await uploadWithTimeout(
-          supabase.storage.from('job-images').upload(path, fileToUpload, { contentType: item.type === 'image' ? 'image/jpeg' : undefined })
-        )
-        if (upErr) throw new Error(`Upload failed: ${(upErr as any).message}`)
-        return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
-      })
+      const getUrl = (key: File | Blob, rebuild: () => void) => {
+        if (!uploadsRef.current.has(key)) rebuild()
+        return withTimeout(uploadsRef.current.get(key)!)
+      }
+
+      const mediaUploadTasks = mediaItems.map(item => getUrl(item.file, () => {
+        startUpload(item.file, async () => {
+          const body = item.type === 'image' ? await compressImage(item.file) : item.file
+          const rand = Math.random().toString(36).slice(2, 8)
+          return item.type === 'image'
+            ? { path: `jobs/img_${user.id}_${Date.now()}_${rand}.jpg`, body, contentType: 'image/jpeg' }
+            : { path: `jobs/video_${user.id}_${Date.now()}_${rand}.mp4`, body }
+        })
+      }))
 
       const voiceUploadTask = voiceBlob
-        ? (async () => {
-            const voiceFile = new File([voiceBlob], `voice_${ts}.webm`, { type: 'audio/webm' })
-            const path = `voices/${user.id}_${ts}.webm`
-            const { error: vErr } = await uploadWithTimeout(
-              supabase.storage.from('job-images').upload(path, voiceFile)
-            )
-            if (vErr) return ''
-            return supabase.storage.from('job-images').getPublicUrl(path).data.publicUrl
-          })()
+        ? getUrl(voiceBlob, () => {
+            startUpload(voiceBlob, async () => ({
+              path: `voices/${user.id}_${Date.now()}.webm`,
+              body: new File([voiceBlob], 'voice.webm', { type: 'audio/webm' }),
+            }))
+          })
         : Promise.resolve('')
 
       const [uploadedUrls, voiceNoteUrl] = await Promise.all([
@@ -220,7 +247,7 @@ export default function PostJob() {
 
       const { error } = await supabase.from('jobs').insert({
         title,
-        description,
+        description: description.trim(),
         category,
         location,
         latitude: latitude || null,
@@ -288,7 +315,7 @@ export default function PostJob() {
           </div>
           <div>
             <label className="text-sm font-medium text-text-primary mb-1.5 block">
-              Description
+              Description <span className="text-text-muted font-normal">(optional)</span>
             </label>
             <textarea
               rows={3}

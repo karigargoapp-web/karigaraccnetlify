@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../lib/mapTiles'
 import { supabase } from '../lib/supabase'
 
 L.Icon.Default.mergeOptions({
@@ -77,7 +78,7 @@ export default function WorkerTrackingMap({ workerId, jobId, workerName }: Props
           <span className="w-2.5 h-2.5 rounded-full bg-warning animate-pulse inline-block" />
           <p className="text-sm font-semibold text-text-primary">Worker Location</p>
         </div>
-        <p className="text-xs text-text-muted">Waiting for worker to enable location sharing…</p>
+        <p className="text-xs text-text-muted">Waiting for the worker’s location…</p>
       </div>
     )
   }
@@ -99,10 +100,7 @@ export default function WorkerTrackingMap({ workerId, jobId, workerName }: Props
           zoom={15}
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
+          <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
           <FlyTo lat={loc.lat} lng={loc.lng} />
           <Marker position={[loc.lat, loc.lng]} icon={workerIcon}>
             <Popup>

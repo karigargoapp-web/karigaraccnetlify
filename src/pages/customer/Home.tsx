@@ -33,18 +33,24 @@ export default function CustomerHome() {
     fetch()
   }, [user])
 
-  // Slow, continuous, infinite auto-scroll for the service categories carousel.
-  // Pauses while the user is manually swiping, then resumes on its own.
+  const scrollPosRef = useRef(0)
+
   useEffect(() => {
     const el = categoryScrollRef.current
     if (!el) return
-    let raf: number
-    const speed = 0.65 // px per frame — slow, premium feel
-    const step = () => {
-      if (!isPausedRef.current && el) {
+    let raf = 0
+    let last = performance.now()
+    const speed = 28
+    const step = (now: number) => {
+      const dt = Math.min(now - last, 64)
+      last = now
+      if (!isPausedRef.current) {
         const half = el.scrollWidth / 2
-        el.scrollLeft += speed
-        if (el.scrollLeft >= half) el.scrollLeft -= half
+        if (half > 0) {
+          scrollPosRef.current += (speed * dt) / 1000
+          if (scrollPosRef.current >= half) scrollPosRef.current -= half
+          el.scrollLeft = scrollPosRef.current
+        }
       }
       raf = requestAnimationFrame(step)
     }
@@ -58,7 +64,11 @@ export default function CustomerHome() {
   }
   const resumeCategoryScrollSoon = () => {
     if (resumeTimeoutRef.current) clearTimeout(resumeTimeoutRef.current)
-    resumeTimeoutRef.current = setTimeout(() => { isPausedRef.current = false }, 1500)
+    resumeTimeoutRef.current = setTimeout(() => {
+      const el = categoryScrollRef.current
+      if (el) scrollPosRef.current = el.scrollLeft
+      isPausedRef.current = false
+    }, 1500)
   }
 
   const goToCategoryJob = (categoryName: string) => {

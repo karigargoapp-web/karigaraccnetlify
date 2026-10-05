@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/mapTiles'
 import { IoArrowBack, IoLocation, IoCalendar, IoWarning, IoChatbubble, IoNavigate, IoCash, IoPerson } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -137,12 +138,14 @@ export default function JobBid() {
             <button onClick={() => nav(-1)}><IoArrowBack size={24} className="text-white" /></button>
             <h1 className="text-white text-xl font-medium">Job Details</h1>
           </div>
-          <button
-            onClick={() => nav(`/chat/${jobId}`)}
-            className="flex items-center gap-1.5 bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-xl"
-          >
-            <IoChatbubble size={14} /> Chat
-          </button>
+          {job.worker_id === user?.id && job.status !== 'pending' && (
+            <button
+              onClick={() => nav(`/chat/${jobId}`)}
+              className="flex items-center gap-1.5 bg-white/20 text-white text-xs font-medium px-3 py-1.5 rounded-xl"
+            >
+              <IoChatbubble size={14} /> Chat
+            </button>
+          )}
         </div>
       </div>
 
@@ -243,7 +246,7 @@ export default function JobBid() {
                 scrollWheelZoom={false}
                 attributionControl={false}
               >
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' />
+                <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
                 <Marker position={[job.latitude!, job.longitude!]} icon={jobPin} />
               </MapContainer>
             </div>

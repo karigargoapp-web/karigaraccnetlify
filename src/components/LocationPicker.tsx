@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../lib/mapTiles'
 import { IoLocate, IoCheckmarkCircle } from 'react-icons/io5'
 
 const googlePin = L.divIcon({
@@ -90,10 +91,7 @@ export default function LocationPicker({ onSelect, initialPosition }: Props) {
           zoom={pos ? 14 : 5}
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
+          <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
           <ClickHandler onPick={pick} />
           <FlyTo position={pos} />
           {pos && <Marker position={pos} icon={googlePin} />}

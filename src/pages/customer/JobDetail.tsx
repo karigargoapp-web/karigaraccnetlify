@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoNavigate, IoCloseCircle, IoGift } from 'react-icons/io5'
+import { IoArrowBack, IoStar, IoCheckmarkCircle, IoLocation, IoCalendar, IoChatbubble, IoCash, IoTime, IoCloseCircle, IoGift } from 'react-icons/io5'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
+import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/mapTiles'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import type { Job, Bid } from '../../types'
+import { MAX_INSPECTION_CHARGE } from '../../types'
 import { parseMediaUrls, isVideoUrl } from '../../utils/media'
 
 const workerBidIcon = L.divIcon({
@@ -83,7 +85,13 @@ export default function JobDetail() {
   }, [jobId])
 
   const acceptBid = async (bid: Bid) => {
+    if (!job) return
     setAccepting(bid.id)
+    const { data: wal } = await supabase.from('wallets').select('balance').eq('user_id', job.customer_id).maybeSingle()
+    if (!wal || (wal.balance || 0) < MAX_INSPECTION_CHARGE) {
+      setAccepting(null)
+      return toast.error(`Top up your wallet to accept this bid. You need at least ₨${MAX_INSPECTION_CHARGE} in your wallet.`)
+    }
     const discount = useRewardBid === bid.id ? Math.min(rewardPoints, bid.inspection_charges) : 0
     const { error } = await supabase.rpc('fn_lock_inspection_escrow', {
       p_job_id: jobId,
@@ -156,12 +164,14 @@ export default function JobDetail() {
                 <IoCloseCircle size={16} /> Cancel
               </button>
             )}
-            <button
-              onClick={() => nav(`/chat/${jobId}`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition"
-            >
-              <IoChatbubble size={16} /> Chat
-            </button>
+            {job.status !== 'pending' && job.worker_id && (
+              <button
+                onClick={() => nav(`/chat/${jobId}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition"
+              >
+                <IoChatbubble size={16} /> Chat
+              </button>
+            )}
           </div>
         </div>
 
@@ -285,12 +295,6 @@ export default function JobDetail() {
                       <p className="text-xs font-medium text-text-primary flex items-center gap-1">
                         <IoLocation size={13} className="text-blue-500" /> Worker's Location at Bid Time
                       </p>
-                      <button
-                        onClick={() => window.open(`https://www.google.com/maps?q=${bid.worker_lat},${bid.worker_lng}`, '_blank')}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-500 text-white text-[11px] font-medium rounded-lg"
-                      >
-                        <IoNavigate size={12} /> Open in Google Maps
-                      </button>
                     </div>
                     <div className="rounded-xl overflow-hidden border border-border" style={{ height: 180 }}>
                       <MapContainer
@@ -303,7 +307,7 @@ export default function JobDetail() {
                         doubleClickZoom={false}
                         attributionControl={false}
                       >
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                        <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
                         <Marker position={[bid.worker_lat, bid.worker_lng]} icon={workerBidIcon} />
                       </MapContainer>
                     </div>

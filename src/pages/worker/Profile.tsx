@@ -191,7 +191,6 @@ export default function WorkerProfilePage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-text-primary">Notifications</p>
-                <p className="text-xs text-text-muted">Receive job updates</p>
               </div>
             </div>
             {/* Toggle Switch */}

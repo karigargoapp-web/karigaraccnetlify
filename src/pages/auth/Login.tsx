@@ -134,7 +134,7 @@ export default function Login() {
       <div className="bg-primary px-6 pt-12 pb-8 rounded-b-3xl text-center relative">
         <button
           onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')}
-          className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 rounded-lg text-xs text-white"
+          className="absolute top-8 right-4 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 rounded-lg text-xs text-white"
         >
           <IoLanguage size={14} />
           <span>{language === 'ur' ? 'اردو' : 'EN'}</span>

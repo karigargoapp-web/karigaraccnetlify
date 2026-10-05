@@ -12,11 +12,14 @@ export default function Earnings() {
   const { user } = useAuth()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [avgRating, setAvgRating] = useState(0)
 
   useEffect(() => {
     if (!user) return
     supabase.from('jobs').select('*').eq('worker_id', user.id).eq('status', 'completed').order('completed_at', { ascending: false })
       .then(({ data }) => { if (data) setJobs(data as Job[]); setLoading(false) })
+    supabase.from('worker_profiles').select('avg_rating').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (data) setAvgRating(Number(data.avg_rating) || 0) })
   }, [user])
 
   const totalGross = jobs.reduce((s, j) => s + (j.inspection_charges || 0) + (j.work_cost || 0), 0)
@@ -91,7 +94,7 @@ export default function Earnings() {
               <IoStar size={20} className="text-yellow-500" />
             </div>
             <p className="text-xs text-text-muted mb-1">Avg Rating</p>
-            <p className="text-lg font-semibold text-text-primary">4.7</p>
+            <p className="text-lg font-semibold text-text-primary">{avgRating.toFixed(1)}</p>
           </div>
           <div className="flex-1 bg-white rounded-2xl shadow-sm p-4">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-3">

@@ -121,9 +121,6 @@ export default function WorkerDashboard() {
           <div>
             <p className="text-white/70 text-sm">Welcome back,</p>
             <p className="text-white text-xl font-medium">{user?.name || 'Worker'} 👋</p>
-            {profile?.skills && profile.skills.length > 0 && (
-              <p className="text-white/50 text-xs mt-0.5">Skills: {profile.skills.join(', ')}</p>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
