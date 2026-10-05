@@ -6,6 +6,7 @@ import { emailRedirect } from '../../lib/authRedirect'
 import { PAKISTAN_CITIES } from '../../types'
 import FieldError from '../../components/FieldError'
 import PhoneInput from '../../components/PhoneInput'
+import { uploadForSignup } from '../../lib/image'
 import {
   PASSWORD_HINT,
   validateEmail,
@@ -153,13 +154,9 @@ export default function CustomerSignup() {
         return
       }
 
-      let photoUrl = ''
-      if (photo) {
-        const path = `avatars/${userId}_${Date.now()}.jpg`
-        const { error: upErr } = await supabase.storage.from('avatars').upload(path, photo)
-        if (upErr) throw upErr
-        photoUrl = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
-      }
+      const [photoUrl] = await uploadForSignup(userId, [
+        { bucket: 'avatars', path: `${userId}_${Date.now()}.jpg`, file: photo! },
+      ])
 
       const { error: insertErr } = await supabase.rpc('handle_signup_user', {
         p_id: userId,

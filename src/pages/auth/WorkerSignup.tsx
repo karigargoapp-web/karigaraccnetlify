@@ -17,7 +17,7 @@ import {
   validatePersonName,
 } from '../../lib/validation'
 import { MAX_WORKER_SKILLS, SKILL_URDU } from '../../lib/skills'
-import { uploadPublic, withTimeout } from '../../lib/image'
+import { uploadPublic, uploadForSignup, withTimeout } from '../../lib/image'
 import { useAuth } from '../../hooks/useAuth'
 import FieldError from '../../components/FieldError'
 import PhoneInput from '../../components/PhoneInput'
@@ -224,10 +224,10 @@ export default function WorkerSignup({ oauth = false }: { oauth?: boolean }) {
       }
 
       const ts = Date.now()
-      const [photoUrl, cnicFrontUrl, cnicBackUrl] = await Promise.all([
-        uploadPublic('avatars', `${userId}_${ts}.jpg`, photo!),
-        uploadPublic('signup-docs', `cnic/${userId}_${ts}_front.jpg`, cnicFront!),
-        uploadPublic('signup-docs', `cnic/${userId}_${ts}_back.jpg`, cnicBack!),
+      const [photoUrl, cnicFrontUrl, cnicBackUrl] = await uploadForSignup(userId, [
+        { bucket: 'avatars', path: `${userId}_${ts}.jpg`, file: photo! },
+        { bucket: 'signup-docs', path: `cnic/${userId}_${ts}_front.jpg`, file: cnicFront! },
+        { bucket: 'signup-docs', path: `cnic/${userId}_${ts}_back.jpg`, file: cnicBack! },
       ])
 
       const { error: usersErr } = await withTimeout(supabase.rpc('handle_signup_user', {

@@ -35,3 +35,35 @@ export async function uploadPublic(bucket: string, path: string, file: File): Pr
   if (error) throw new Error(`Upload failed: ${error.message}`)
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
 }
+
+export interface SignupUpload {
+  bucket: 'avatars' | 'signup-docs'
+  path: string
+  file: File
+}
+
+export async function uploadForSignup(userId: string, items: SignupUpload[]): Promise<string[]> {
+  const { supabase } = await import('./supabase')
+  const prepared = await Promise.all(items.map(async i => ({ ...i, file: await compressImage(i.file) })))
+
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke('signup-upload-url', {
+      body: { user_id: userId, files: prepared.map(i => ({ bucket: i.bucket, path: i.path })) },
+    }),
+  )
+  if (error || !data?.ok) throw new Error('Could not prepare upload. Please try again.')
+
+  const tokens = new Map<string, string>(
+    (data.files as { path: string; token: string }[]).map(f => [f.path, f.token]),
+  )
+
+  return Promise.all(prepared.map(async i => {
+    const token = tokens.get(i.path)
+    if (!token) throw new Error('Upload failed. Please try again.')
+    const { error: upErr } = await withTimeout(
+      supabase.storage.from(i.bucket).uploadToSignedUrl(i.path, token, i.file, { contentType: i.file.type || 'image/jpeg' }),
+    )
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`)
+    return supabase.storage.from(i.bucket).getPublicUrl(i.path).data.publicUrl
+  }))
+}
