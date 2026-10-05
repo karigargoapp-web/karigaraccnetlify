@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { IoShieldCheckmark, IoTime, IoClose, IoLogOut } from 'react-icons/io5'
 
 export default function PendingApproval() {
   const { user, signOut } = useAuth()
+  const nav = useNavigate()
 
   const isRejected = user?.approval_status === 'rejected'
 
@@ -17,13 +19,13 @@ export default function PendingApproval() {
         </div>
 
         <h1 className="text-xl font-bold text-text-primary mb-2">
-          {isRejected ? 'Account Not Approved' : 'Awaiting Admin Approval'}
+          {isRejected ? 'Account Not Approved' : 'Awaiting Support Approval'}
         </h1>
 
         <p className="text-sm text-text-secondary mb-6 leading-relaxed">
           {isRejected
             ? `Your account was not approved. Reason: ${user?.rejection_reason || 'Please contact support.'}`
-            : 'Your account is under review. Admin will verify your CNIC and profile details. You will be notified once approved.'
+            : 'Your account is under review. Support will verify your CNIC and profile details. You will be notified once approved.'
           }
         </p>
 
@@ -42,7 +44,7 @@ export default function PendingApproval() {
               <IoTime className={user?.approval_status === 'approved' ? 'text-green-500' : 'text-amber-500'} />
             </div>
             <div>
-              <p className="text-sm font-medium text-text-primary">Admin Approval</p>
+              <p className="text-sm font-medium text-text-primary">Support Approval</p>
               <p className="text-xs text-text-muted capitalize">{user?.approval_status}</p>
             </div>
           </div>
@@ -51,8 +53,17 @@ export default function PendingApproval() {
         {!isRejected && (
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
             <p className="text-xs text-primary font-medium">What happens next?</p>
-            <p className="text-xs text-text-secondary mt-1">Admin reviews your CNIC and profile. This usually takes a few hours. You'll receive a notification once approved.</p>
+            <p className="text-xs text-text-secondary mt-1">Support reviews your CNIC and profile. This usually takes a few hours. You'll receive a notification once approved.</p>
           </div>
+        )}
+
+        {isRejected && (
+          <button
+            onClick={() => nav('/worker/resubmit')}
+            className="w-full bg-primary text-white py-3 rounded-xl text-sm font-semibold mb-3"
+          >
+            Resubmit documents
+          </button>
         )}
 
         <button

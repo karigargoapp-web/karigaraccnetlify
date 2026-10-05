@@ -253,7 +253,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Commissions Earned', value: `₨${stats.platformRevenue.toLocaleString()}`, sub: '10% of each job', color: 'bg-primary', icon: IoTrendingUp },
+          { label: 'Platform Fees Earned', value: `₨${stats.platformRevenue.toLocaleString()}`, sub: '10% of each job', color: 'bg-primary', icon: IoTrendingUp },
           { label: 'Bidding Fees Earned', value: `₨${stats.biddingFees.toLocaleString()}`, sub: '₨20 per job started', color: 'bg-violet-600', icon: IoWallet },
           { label: 'Pending Approvals', value: stats.pendingApprovals, sub: 'Workers waiting review', color: 'bg-amber-500', icon: IoTime },
         ].map((s, i) => (

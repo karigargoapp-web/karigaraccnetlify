@@ -51,7 +51,7 @@ export default function DisputeThread({ dispute, job }: Props) {
     if (error) return toast.error('Failed to send response')
     setReply('')
     setMedia({})
-    toast.success('Response sent to admin')
+    toast.success('Response sent to Support')
   }
 
   return (
@@ -61,7 +61,7 @@ export default function DisputeThread({ dispute, job }: Props) {
 
       {canRespond && (
         <div className="border-t border-border pt-3 space-y-2">
-          <p className="text-xs font-medium text-amber-700">Admin requested more information from you:</p>
+          <p className="text-xs font-medium text-amber-700">Support requested more information from you:</p>
           <textarea rows={3} placeholder="Type your response..." value={reply} onChange={e => setReply(e.target.value)}
             className="resize-none" />
           <DisputeMediaPicker pathPrefix={`disputes/${dispute.id}`} media={media} onChange={setMedia} />

@@ -7,7 +7,7 @@ import type { Wallet, WalletTransaction } from '../../types'
 import { BIDDING_FEE } from '../../types'
 import toast from 'react-hot-toast'
 
-function WithdrawSection({ balance, userId, onSuccess }: { balance: number; userId: string; onSuccess: () => void }) {
+function WithdrawSection({ withdrawable, lockedBonus, onSuccess }: { withdrawable: number; lockedBonus: number; onSuccess: () => void }) {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('JazzCash')
   const [accountNumber, setAccountNumber] = useState('')
@@ -17,16 +17,17 @@ function WithdrawSection({ balance, userId, onSuccess }: { balance: number; user
   const handleWithdraw = async () => {
     const amt = parseInt(amount)
     if (!amt || amt < 100) return toast.error('Minimum withdrawal is ₨100')
-    if (amt > balance) return toast.error('Amount exceeds available balance')
+    if (amt > withdrawable) return toast.error(`You can withdraw up to ₨${withdrawable.toLocaleString()}. The welcome bonus can only be used for bidding.`)
     if (!accountNumber.trim()) return toast.error('Enter your account number')
     setLoading(true)
-    const { error } = await supabase.from('wallets').update({ balance: balance - amt }).eq('user_id', userId)
-    if (error) { setLoading(false); return toast.error('Withdrawal failed') }
-    await supabase.from('wallet_transactions').insert({
-      user_id: userId, type: 'withdrawal', amount: amt, direction: 'debit',
-      description: `Withdrawal via ${method} to ${accountNumber}`,
-    })
-    setLoading(false); setShowForm(false); setAmount(''); setAccountNumber('')
+    const { error } = await supabase.rpc('fn_request_withdrawal', { p_amount: amt, p_method: method, p_account: accountNumber.trim() })
+    setLoading(false)
+    if (error) {
+      if (error.message.includes('exceeds_withdrawable')) return toast.error('Amount exceeds your withdrawable balance')
+      if (error.message.includes('below_minimum')) return toast.error('Minimum withdrawal is ₨100')
+      return toast.error('Withdrawal failed. Please try again.')
+    }
+    setShowForm(false); setAmount(''); setAccountNumber('')
     toast.success(`₨${amt.toLocaleString()} withdrawal request submitted`)
     onSuccess()
   }
@@ -40,7 +41,7 @@ function WithdrawSection({ balance, userId, onSuccess }: { balance: number; user
         </div>
         <div className="text-left">
           <p className="text-sm font-semibold text-primary">Withdraw Earnings</p>
-          <p className="text-xs text-text-muted">Available: ₨{balance.toLocaleString()}</p>
+          <p className="text-xs text-text-muted">Withdrawable: ₨{withdrawable.toLocaleString()}</p>
         </div>
       </div>
       <span className="text-xs bg-primary text-white px-3 py-1.5 rounded-full font-medium">Withdraw</span>
@@ -49,6 +50,11 @@ function WithdrawSection({ balance, userId, onSuccess }: { balance: number; user
 
   return (
     <div className="space-y-3">
+      {lockedBonus > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          ₨{lockedBonus} of your balance is welcome bonus and can only be used for bidding. It cannot be withdrawn.
+        </p>
+      )}
       <div>
         <label className="text-xs font-medium text-text-muted mb-1 block">Amount (min ₨100)</label>
         <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Enter amount"
@@ -105,7 +111,7 @@ export default function WorkerWallet() {
     inspection_payment: 'Inspection Fee Paid',
     escrow_lock: 'Job Amount Locked',
     escrow_release: 'Job Payment Received',
-    commission: 'Platform Commission',
+    commission: 'Platform Fee',
     reward: 'Reward Points Earned',
     reward_redemption: 'Reward Points Used',
     bidding_fee: 'Job Start Fee (₨20)',
@@ -115,8 +121,10 @@ export default function WorkerWallet() {
   }
 
   const balance = wallet?.balance || 0
+  const lockedBonus = Math.min(balance, Number((wallet as unknown as { bonus_balance?: number } | null)?.bonus_balance) || 0)
+  const withdrawable = Math.max(0, balance - lockedBonus)
   const lowBalance = balance < BIDDING_FEE
-  const bidsRemaining = Math.min(Math.floor(balance / BIDDING_FEE), 5)
+  const bidsRemaining = Math.min(Math.floor(lockedBonus / BIDDING_FEE), 5)
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
@@ -158,7 +166,7 @@ export default function WorkerWallet() {
             <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">₨100 gift</span>
           </div>
           <p className="text-xs text-text-muted leading-relaxed mb-4">
-            KarigarGo gives every new worker ₨100 to start bidding. Each bid costs ₨20, so your first 5 bids are on us. After that, top up your wallet to keep bidding. Platform commission (10%) always applies on completed jobs.
+            KarigarGo gives every new worker ₨100 to start bidding. Each bid costs ₨20, so your first 5 bids are on us. After that, top up your wallet to keep bidding. A 10% platform fee always applies on completed jobs.
           </p>
           <div className="flex items-center gap-2">
             {[1,2,3,4,5].map(i => (
@@ -184,11 +192,11 @@ export default function WorkerWallet() {
             </p>
             <div className="mt-3 flex items-center gap-2">
               <div className="flex-1 h-2 bg-green-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min((balance / 100) * 100, 100)}%` }} />
+                <div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min((lockedBonus / 100) * 100, 100)}%` }} />
               </div>
-              <span className="text-xs font-semibold text-green-700">₨{balance}/100</span>
+              <span className="text-xs font-semibold text-green-700">₨{lockedBonus}/100</span>
             </div>
-            <p className="text-xs text-green-600 mt-1">{Math.floor(balance / BIDDING_FEE)} bids remaining from bonus</p>
+            <p className="text-xs text-green-600 mt-1">{Math.floor(lockedBonus / BIDDING_FEE)} bids remaining from bonus</p>
           </div>
 
           <div className={`flex items-center gap-2 p-3 rounded-xl ${lowBalance ? 'bg-red-50' : 'bg-green-50'}`}>
@@ -216,7 +224,7 @@ export default function WorkerWallet() {
         <div className="bg-white rounded-2xl shadow-sm p-5">
           <p className="text-sm font-semibold text-text-primary mb-1">Withdraw Earnings</p>
           <p className="text-xs text-text-muted mb-4">Transfer your balance to your payment account</p>
-          <WithdrawSection balance={balance} userId={user!.id} onSuccess={() => {
+          <WithdrawSection withdrawable={withdrawable} lockedBonus={lockedBonus} onSuccess={() => {
             supabase.from('wallets').select('*').eq('user_id', user!.id).single().then(({ data }) => { if (data) setWallet(data as any) })
             supabase.from('wallet_transactions').select('*').eq('user_id', user!.id).order('created_at', { ascending: false }).limit(30).then(({ data }) => { if (data) setTransactions(data as any) })
           }} />

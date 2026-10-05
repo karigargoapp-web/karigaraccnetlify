@@ -13,7 +13,7 @@ const TX_COLOR: Record<string, string> = {
 
 const TX_LABEL: Record<string, string> = {
   top_up:'Top Up', inspection_payment:'Inspection Paid', escrow_lock:'Escrow Locked',
-  escrow_release:'Payment Released', commission:'Commission', reward:'Reward Points',
+  escrow_release:'Payment Released', commission:'Platform Fee', reward:'Reward Points',
   bidding_fee:'Bidding Fee', refund:'Refund', partial_refund:'Partial Refund', withdrawal:'Withdrawal',
 }
 
@@ -90,7 +90,7 @@ export default function AdminWallets() {
         {[
           {label:'Escrow Locked', value:`₨${summary.totalEscrow.toLocaleString()}`, icon:IoLockClosed, color:'text-purple-600', bg:'bg-purple-50'},
           {label:'All Wallet Balances', value:`₨${summary.totalBalance.toLocaleString()}`, icon:IoWallet, color:'text-blue-600', bg:'bg-blue-50'},
-          {label:'Commissions Earned', value:`₨${summary.commissions.toLocaleString()}`, icon:IoTrendingUp, color:'text-primary', bg:'bg-green-50'},
+          {label:'Platform Fees Earned', value:`₨${summary.commissions.toLocaleString()}`, icon:IoTrendingUp, color:'text-primary', bg:'bg-green-50'},
           {label:'Bidding Fees Earned', value:`₨${summary.biddingFees.toLocaleString()}`, icon:IoTrendingUp, color:'text-orange-600', bg:'bg-orange-50'},
         ].map((s,i) => (
           <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">

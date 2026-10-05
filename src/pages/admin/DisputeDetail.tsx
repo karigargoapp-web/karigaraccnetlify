@@ -81,7 +81,7 @@ export default function AdminDisputeDetail() {
       if (error) throw error
       await supabase.from('notifications').insert({
         user_id: targetId, type: 'system',
-        title: 'Admin Requested More Information',
+        title: 'Support Requested More Information',
         body: `Regarding "${job.title}": ${remarkText.trim()}`,
       })
       setRemarkText('')
@@ -270,8 +270,8 @@ export default function AdminDisputeDetail() {
               </div>
               <input type="range" min={0} max={100} step={5} value={settledPct} onChange={e => setSettledPct(Number(e.target.value))} className="w-full accent-primary"/>
               <div className="mt-4 space-y-2 text-sm bg-white rounded-lg p-3 border border-yellow-100">
-                <div className="flex justify-between"><span className="text-gray-500">Worker receives (after 10% commission)</span><span className="font-semibold text-green-700">₨{(workerGets-commission).toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Platform commission</span><span className="font-medium">₨{commission.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Worker receives (after 10% platform fee)</span><span className="font-semibold text-green-700">₨{(workerGets-commission).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Platform fee</span><span className="font-medium">₨{commission.toLocaleString()}</span></div>
                 <div className="flex justify-between border-t border-gray-100 pt-2"><span className="text-gray-500">Customer refunded</span><span className="font-semibold text-blue-700">₨{customerRefund.toLocaleString()}</span></div>
               </div>
             </div>

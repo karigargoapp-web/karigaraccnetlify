@@ -13,6 +13,7 @@ export interface User {
   profile_complete: boolean
   approval_status: ApprovalStatus
   rejection_reason?: string
+  rejection_fields?: string[] | null
   suspended_at?: string
   suspension_reason?: string
   dispute_count: number

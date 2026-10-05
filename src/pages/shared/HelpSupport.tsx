@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IoArrowBack, IoMail, IoCall, IoChatbubbleEllipses, IoChevronDown, IoChevronUp, IoClose, IoCheckmarkCircle } from 'react-icons/io5'
 import { useAuth } from '../../hooks/useAuth'
+import { invokeMailer } from '../../lib/mailer'
 import toast from 'react-hot-toast'
 
 interface FAQ {
@@ -17,6 +18,7 @@ export default function HelpSupport() {
   const [message, setMessage] = useState('')
   const [subject, setSubject] = useState('')
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [sending, setSending] = useState(false)
 
   const customerFaqs: FAQ[] = [
     { question: "How do I post a job?", answer: "Tap Post a Job on your dashboard. Add a title, describe the problem, record a voice note, and upload at least one photo. Workers in your city will start bidding shortly." },
@@ -32,23 +34,28 @@ export default function HelpSupport() {
   ]
 
   const workerFaqs: FAQ[] = [
-    { question: "How do I start getting jobs?", answer: "After your account is approved by admin, open your dashboard. You will see pending jobs in your city. Tap a job to view details and place your bid. Make sure your wallet has at least Rs20." },
+    { question: "How do I start getting jobs?", answer: "After your account is approved by Support, open your dashboard. You will see pending jobs in your city. Tap a job to view details and place your bid. Make sure your wallet has at least Rs20." },
     { question: "What is the bidding fee?", answer: "A Rs20 bidding fee is charged when the customer accepts your work cost and the job officially starts. It is NOT charged when you place a bid, only when the customer approves your proposed work cost." },
     { question: "What is the Rs100 signup bonus?", answer: "Every new worker receives Rs100 in their wallet on signup. This covers your first 5 bidding fees (Rs20 each), so you can start bidding immediately without topping up." },
     { question: "What is the inspection charge?", answer: "When bidding, you set your inspection charge for visiting the customer and assessing the job. Maximum is Rs500. This amount is paid by the customer when they accept your bid." },
     { question: "How does the work cost work?", answer: "After inspection, the customer may ask you to proceed. You propose a total work cost. If they approve, Rs20 bidding fee is deducted from your wallet and the job starts. If they decline, the job ends and you keep the inspection fee." },
-    { question: "What does KarigarGo charge as commission?", answer: "KarigarGo deducts a 10% platform commission from your earnings on job completion. The customer never sees this charge. If the work cost is Rs2,000, you receive Rs1,800 and Rs200 goes to the platform." },
+    { question: "What fees does KarigarGo charge?", answer: "KarigarGo deducts a 10% platform fee from your earnings on job completion. The customer never sees this charge. If the work cost is Rs2,000, you receive Rs1,800 and Rs200 goes to the platform." },
     { question: "What are Reward Points and how do I use them?", answer: "You earn 2% of the total job value as reward points on every completed job. A Rs2,000 job earns Rs40 in reward points. You can apply them as a discount on your bidding fee. If your bidding fee is Rs20 and you apply Rs10 in reward points, you pay Rs10. The remaining Rs10 is covered by KarigarGo." },
-    { question: "Full payment example", answer: "Customer approves Rs2,000 work cost. You pay Rs20 bidding fee. On completion, 10% commission (Rs200) is deducted. You receive Rs1,800. You also earn Rs40 reward points (2% of Rs2,000). Inspection fee (e.g. Rs300) is fully yours on top of this." },
+    { question: "Full payment example", answer: "Customer approves Rs2,000 work cost. You pay Rs20 bidding fee. On completion, 10% platform fee (Rs200) is deducted. You receive Rs1,800. You also earn Rs40 reward points (2% of Rs2,000). Inspection fee (e.g. Rs300) is fully yours on top of this." },
     { question: "When do I get paid?", answer: "Payment is released to your wallet immediately when the customer marks the job as complete. Withdraw via JazzCash or EasyPaisa from the Wallet screen." },
-    { question: "What if the customer raises a dispute?", answer: "The job will be paused and our admin team will review. They may resolve by continuing the job, issuing partial payment, or cancelling. Always use in-app chat to communicate clearly and avoid disputes." },
+    { question: "What if the customer raises a dispute?", answer: "The job will be paused and our Support team will review. They may resolve by continuing the job, issuing partial payment, or cancelling. Always use in-app chat to communicate clearly and avoid disputes." },
     { question: "Why was my account not approved?", answer: "Your account may be rejected if CNIC images are unclear or documents are missing. Check the rejection reason in the app and contact support to resubmit." },
     { question: "Is my location always shared?", answer: "Your live location is shared with the customer automatically from when a bid is accepted until the job is completed. This helps the customer track your arrival and builds trust." },
   ]
 
     const faqs = user?.role === 'worker' ? workerFaqs : customerFaqs
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (sending) return
+    setSending(true)
+    const res = await invokeMailer({ action: 'support_message', subject: subject.trim(), message: message.trim() })
+    setSending(false)
+    if (!res.ok) return toast.error('Could not send your message. Please check your connection and try again.')
     setShowConfirmation(true)
     setTimeout(() => {
       setShowContactForm(false)
@@ -99,7 +106,7 @@ export default function HelpSupport() {
                   </div>
                   <div>
                     <p className="text-xs text-text-muted">Email</p>
-                    <p className="text-sm font-medium text-primary">support@karigargo.pk</p>
+                    <p className="text-sm font-medium text-primary">karigargoapp@gmail.com</p>
                   </div>
                 </div>
 
@@ -180,10 +187,8 @@ export default function HelpSupport() {
                   type="text"
                   placeholder="What do you need help with?"
                   value={subject}
-                  onChange={(e) => {
-                    const cleaned = e.target.value.replace(/[^a-zA-Z\s.,!?'-]/g, '')
-                    setSubject(cleaned)
-                  }}
+                  maxLength={150}
+                  onChange={(e) => setSubject(e.target.value)}
                   className="w-full"
                 />
               </div>
@@ -193,10 +198,8 @@ export default function HelpSupport() {
                 <textarea
                   placeholder="Describe your issue or question..."
                   value={message}
-                  onChange={(e) => {
-                    const cleaned = e.target.value.replace(/[^a-zA-Z\s.,!?'-]/g, '')
-                    setMessage(cleaned)
-                  }}
+                  maxLength={4000}
+                  onChange={(e) => setMessage(e.target.value)}
                   rows={6}
                   className="w-full resize-none"
                 />
@@ -204,10 +207,10 @@ export default function HelpSupport() {
 
               <button
                 onClick={handleSubmit}
-                disabled={!subject.trim() || !message.trim()}
+                disabled={sending || !subject.trim() || !message.trim()}
                 className="w-full bg-primary text-white py-3.5 rounded-xl font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Send Message
+                {sending ? 'Sending...' : 'Send Message'}
               </button>
             </div>
           </div>

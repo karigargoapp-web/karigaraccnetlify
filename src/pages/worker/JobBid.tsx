@@ -58,7 +58,7 @@ export default function JobBid() {
       return toast.error(overMax ? 'Maximum inspection charge is ₨500' : 'Enter inspection charge')
     if (!user || !job) return
     if (user.approval_status !== 'approved') {
-      return toast.error('Your account is pending approval. You cannot bid until approved by admin.')
+      return toast.error('Your account is pending approval. You cannot bid until approved by Support.')
     }
     const { data: wallet } = await supabase.from('wallets').select('balance').eq('user_id', user.id).maybeSingle()
     if (!wallet || wallet.balance < 20) {

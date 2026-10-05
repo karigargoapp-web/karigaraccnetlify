@@ -52,7 +52,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
             </div>
             <div>
               <p className="font-bold text-white text-base leading-tight">KarigarGo</p>
-              <p className="text-xs text-slate-400">Admin Panel</p>
+              <p className="text-xs text-slate-400">Support Panel</p>
             </div>
           </div>
           {onClose && (
@@ -91,7 +91,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
             <span className="text-sm font-bold text-primary-light">{user?.name?.[0]?.toUpperCase() || 'A'}</span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-white truncate">{user?.name || 'Admin'}</p>
+            <p className="text-xs font-semibold text-white truncate">{user?.name || 'Support'}</p>
             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
           </div>
         </div>
@@ -108,7 +108,7 @@ function Breadcrumb() {
   const location = useLocation()
   const parts = location.pathname.split('/').filter(Boolean)
   const labels: Record<string, string> = {
-    admin: 'Admin', workers: 'Workers', users: 'Customers', jobs: 'Jobs',
+    admin: 'Support', workers: 'Workers', users: 'Customers', jobs: 'Jobs',
     disputes: 'Disputes', wallets: 'Wallets', revenue: 'Revenue', reports: 'Reports',
   }
   return (
@@ -164,7 +164,7 @@ export default function AdminLayout() {
         </main>
 
         <footer className="px-8 py-4 border-t border-slate-200 bg-white">
-          <p className="text-xs text-slate-400">KarigarGo Admin Panel · All rights reserved</p>
+          <p className="text-xs text-slate-400">KarigarGo Support Panel · All rights reserved</p>
         </footer>
       </div>
     </div>

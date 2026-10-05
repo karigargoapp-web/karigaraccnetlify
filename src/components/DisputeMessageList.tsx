@@ -12,7 +12,7 @@ export default function DisputeMessageList({ messages, job }: Props) {
 
   const labelFor = (m: DisputeMessage) => {
     if (m.sender_id === user?.id) return 'You'
-    if (m.sender_role === 'admin') return 'Admin'
+    if (m.sender_role === 'admin') return 'Support'
     if (m.sender_id === job.customer_id) return job.customer_name || 'Customer'
     if (m.sender_id === job.worker_id) return job.worker_name || 'Worker'
     return m.sender_role

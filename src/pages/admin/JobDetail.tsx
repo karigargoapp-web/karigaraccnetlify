@@ -60,8 +60,8 @@ export default function AdminJobDetail() {
     }
     await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'job_cancelled', entity_type:'job', entity_id:jobId, notes:cancelReason })
     await supabase.from('notifications').insert([
-      { user_id:job.customer_id, type:'system', title:'Job Cancelled by Admin', body:cancelReason },
-      ...(job.worker_id ? [{ user_id:job.worker_id, type:'system', title:'Job Cancelled by Admin', body:cancelReason }] : []),
+      { user_id:job.customer_id, type:'system', title:'Job Cancelled by Support', body:cancelReason },
+      ...(job.worker_id ? [{ user_id:job.worker_id, type:'system', title:'Job Cancelled by Support', body:cancelReason }] : []),
     ])
     toast.success('Job cancelled')
     setShowCancel(false)
@@ -197,7 +197,7 @@ export default function AdminJobDetail() {
       )}
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Admin Note</h2>
+        <h2 className="font-semibold text-gray-900 mb-3">Support Note</h2>
         <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)}
           rows={3} placeholder="Internal notes about this job..."
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"/>
@@ -209,7 +209,7 @@ export default function AdminJobDetail() {
 
       {!['completed','cancelled'].includes(job.status) && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-          <h2 className="font-semibold text-gray-900 mb-3">Admin Actions</h2>
+          <h2 className="font-semibold text-gray-900 mb-3">Support Actions</h2>
           {!showCancel
             ? <button onClick={() => setShowCancel(true)} className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100">
                 Cancel This Job

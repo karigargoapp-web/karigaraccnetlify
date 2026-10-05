@@ -63,7 +63,7 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
           user_id: otherPartyId,
           type: 'system',
           title: isCancellation ? 'Cancellation Requested on Job' : 'Dispute Raised on Job',
-          body: `${isWorkerRaising ? 'The worker' : 'The customer'} ${actionLabel} "${job.title}". The job is paused pending admin review.`,
+          body: `${isWorkerRaising ? 'The worker' : 'The customer'} ${actionLabel} "${job.title}". The job is paused pending Support review.`,
         })
       }
       const { data: admins } = await supabase.from('users').select('id').eq('role', 'admin')

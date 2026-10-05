@@ -70,7 +70,7 @@ export default function AdminRevenue() {
           <div className="grid grid-cols-2 gap-3">
             {[
               {label:'Total Revenue', value:`₨${stats.total.toLocaleString()}`, icon:IoTrendingUp, color:'text-primary', bg:'bg-green-50'},
-              {label:'Commissions (10%)', value:`₨${stats.commissions.toLocaleString()}`, icon:IoCash, color:'text-teal-600', bg:'bg-teal-50'},
+              {label:'Platform Fees (10%)', value:`₨${stats.commissions.toLocaleString()}`, icon:IoCash, color:'text-teal-600', bg:'bg-teal-50'},
               {label:'Bidding Fees (₨20)', value:`₨${stats.biddingFees.toLocaleString()}`, icon:IoPricetag, color:'text-blue-600', bg:'bg-blue-50'},
               {label:'Jobs Completed', value:stats.jobsCompleted, icon:IoTrendingUp, color:'text-purple-600', bg:'bg-purple-50'},
             ].map((s,i) => (
@@ -86,7 +86,7 @@ export default function AdminRevenue() {
 
           {dailyRevenue.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h2 className="font-semibold text-gray-900 mb-4">Daily Commission Revenue</h2>
+              <h2 className="font-semibold text-gray-900 mb-4">Daily Platform Fee Revenue</h2>
               <div className="flex items-end gap-1.5 h-36">
                 {dailyRevenue.map((d,i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">

@@ -7,6 +7,10 @@ import NotificationBell from '../../components/NotificationBell'
 import { CUSTOMER_SERVICE_CATEGORIES, CATEGORY_SKILL_MATCH, BIDDING_FEE } from '../../types'
 import type { Job, WorkerProfile as WP } from '../../types'
 
+const SKILL_TO_JOB_CATEGORY: Record<string, string> = {
+  'Electronics Repairing': 'Electronics Repair',
+}
+
 export default function WorkerDashboard() {
   const nav = useNavigate()
   const { user } = useAuth()
@@ -86,11 +90,13 @@ export default function WorkerDashboard() {
   // Jobs in categories with a skill match rule are only shown to workers who
   // hold at least one of the allowed skills (OR match). Other categories keep
   // existing behaviour and remain visible to everyone.
-  const workerSkills = profile?.skills || []
+  const workerSkills = (profile?.skills || []).slice(0, 2)
+  const skillCategories = workerSkills.map(sk => SKILL_TO_JOB_CATEGORY[sk] || sk)
   const matchedJobs = jobs.filter(j => {
+    if (workerSkills.length === 0) return true
+    if (skillCategories.includes(j.category)) return true
     const allowedSkills = CATEGORY_SKILL_MATCH[j.category]
-    if (!allowedSkills) return true
-    return allowedSkills.some(s => workerSkills.includes(s))
+    return !!allowedSkills && allowedSkills.some(sk => workerSkills.includes(sk))
   })
   const filtered = filter ? matchedJobs.filter(j => j.category === filter) : matchedJobs
 
@@ -113,7 +119,8 @@ export default function WorkerDashboard() {
             <IoWarning className="text-red-200 text-lg flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-red-100 text-sm font-medium">Account Not Approved</p>
-              <p className="text-red-200/80 text-xs mt-0.5">Contact support for more information.</p>
+              <p className="text-red-200/80 text-xs mt-0.5">Fix the issues Support raised and resubmit.</p>
+              <button onClick={() => nav('/worker/resubmit')} className="mt-2 bg-white text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg">Resubmit documents</button>
             </div>
           </div>
         )}
@@ -168,7 +175,7 @@ export default function WorkerDashboard() {
           </button>
         )}
 
-        {/* Category filter chips */}
+        {/* Skill filter chips */}
         <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-none mb-4">
           <button
             onClick={() => setFilter('')}
@@ -178,17 +185,21 @@ export default function WorkerDashboard() {
           >
             All Categories
           </button>
-          {CUSTOMER_SERVICE_CATEGORIES.map(c => (
-            <button
-              key={c.name}
-              onClick={() => setFilter(c.name === filter ? '' : c.name)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                filter === c.name ? 'bg-primary text-white' : 'bg-white border border-border text-text-secondary'
-              }`}
-            >
-              {c.icon} {c.name}
-            </button>
-          ))}
+          {workerSkills.map(skill => {
+            const jobCategory = SKILL_TO_JOB_CATEGORY[skill] || skill
+            const cat = CUSTOMER_SERVICE_CATEGORIES.find(c => c.name === jobCategory)
+            return (
+              <button
+                key={skill}
+                onClick={() => setFilter(filter === jobCategory ? '' : jobCategory)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                  filter === jobCategory ? 'bg-primary text-white' : 'bg-white border border-border text-text-secondary'
+                }`}
+              >
+                {cat?.icon} {skill}
+              </button>
+            )
+          })}
         </div>
 
         {/* Jobs header */}

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
-import { signOutIfEmailPasswordUnconfirmed } from '../lib/authRole'
 import { registerSessionReadyCallback } from '../lib/nativeAuth'
 import { supabase } from '../lib/supabase'
 import type { User as AppUser, UserRole } from '../types'
@@ -34,8 +33,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchAndSetUser = useCallback(async (supaUser: SupaUser): Promise<AppUser | null> => {
     try {
-      const kicked = await signOutIfEmailPasswordUnconfirmed(supaUser)
-      if (kicked) { setSession(null); setUser(null); return null }
+      const hasEmailIdentity = !!supaUser.identities?.some((i: any) => i.provider === 'email')
+      if (!supaUser.email_confirmed_at && hasEmailIdentity) {
+        await supabase.auth.signOut({ scope: 'local' })
+        setSession(null); setUser(null)
+        return null
+      }
 
       const isGoogleUser =
         supaUser.app_metadata?.provider === 'google' ||
@@ -63,8 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const updates: Record<string, unknown> = {}
         if (!data.verified && (!!supaUser.email_confirmed_at || isGoogleUser)) { updates.verified = true; data.verified = true }
         if (!data.profile_photo_url && photo) { updates.profile_photo_url = photo; data.profile_photo_url = photo }
-        if (Object.keys(updates).length > 0) await supabase.from('users').update(updates).eq('id', supaUser.id)
         setUser(data as AppUser)
+        if (Object.keys(updates).length > 0) void supabase.from('users').update(updates).eq('id', supaUser.id)
         return data as AppUser
       }
 
@@ -81,15 +84,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       if (rpcErr) throw rpcErr
 
-      if (role === 'worker') {
-        await supabase.rpc('handle_signup_worker_profile', {
-          p_user_id: supaUser.id, p_skills: [], p_bio: null,
-          p_cnic: '', p_cnic_front_url: '', p_cnic_back_url: '', p_certificate_urls: null,
-        })
-      }
-
-      const { data: newData, error: newFetchErr } = await supabase
-        .from('users').select('*').eq('id', supaUser.id).maybeSingle()
+      const [{ data: newData, error: newFetchErr }] = await Promise.all([
+        supabase.from('users').select('*').eq('id', supaUser.id).maybeSingle(),
+        role === 'worker'
+          ? supabase.rpc('handle_signup_worker_profile', {
+              p_user_id: supaUser.id, p_skills: [], p_bio: null,
+              p_cnic: '', p_cnic_front_url: '', p_cnic_back_url: '', p_certificate_urls: null,
+            })
+          : Promise.resolve(null),
+      ])
       if (newFetchErr) throw newFetchErr
       if (newData) { setUser(newData as AppUser); return newData as AppUser }
       return null

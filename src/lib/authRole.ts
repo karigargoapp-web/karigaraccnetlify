@@ -96,7 +96,7 @@ export async function assertPortalRole(
     if (role === 'admin') {
       return {
         ok: false,
-        message: 'This account is an admin. Open the admin app to sign in.',
+        message: 'This account cannot sign in on this page.',
       }
     }
   }
@@ -111,7 +111,7 @@ export async function assertPortalRole(
     if (role === 'admin') {
       return {
         ok: false,
-        message: 'This account is an admin. Open the admin app to sign in.',
+        message: 'This account cannot sign in on this page.',
       }
     }
   }

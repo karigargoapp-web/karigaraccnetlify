@@ -9,6 +9,13 @@ import './index.css'
 
 setupNativeAuthListener()
 
+if (new URLSearchParams(window.location.search).has('code')) {
+  void import('./pages/customer/Home')
+  void import('./pages/worker/Dashboard')
+  void import('./pages/auth/CompleteCustomerProfile')
+  void import('./pages/auth/CompleteWorkerProfile')
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>

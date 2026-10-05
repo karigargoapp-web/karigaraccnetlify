@@ -64,24 +64,25 @@ export default function JobDetail() {
 
   useEffect(() => {
     if (!jobId) return
-    const fetchAll = async () => {
-      const { data: jobData } = await supabase.from('jobs').select('*').eq('id', jobId).single()
+    let cancelled = false
+    Promise.all([
+      supabase.from('jobs').select('*').eq('id', jobId).single(),
+      fetchBids(jobId),
+    ]).then(([{ data: jobData }]) => {
+      if (cancelled) return
       if (jobData) {
         setJob(jobData as Job)
-        // Fetch customer reward points
-        const { data: w } = await supabase.from('wallets').select('reward_points').eq('user_id', jobData.customer_id).single()
-        if (w) setRewardPoints(w.reward_points || 0)
+        supabase.from('wallets').select('reward_points').eq('user_id', jobData.customer_id).maybeSingle()
+          .then(({ data: w }) => { if (!cancelled && w) setRewardPoints(w.reward_points || 0) })
       }
-      await fetchBids(jobId)
       setLoading(false)
-    }
-    fetchAll()
+    })
 
     const ch = supabase
       .channel(`bids-${jobId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `job_id=eq.${jobId}` }, () => { fetchBids(jobId) })
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { cancelled = true; supabase.removeChannel(ch) }
   }, [jobId])
 
   const acceptBid = async (bid: Bid) => {

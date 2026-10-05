@@ -44,6 +44,7 @@ const WorkerChangePassword = lazy(() => import('./pages/worker/ChangePassword'))
 const WorkerPersonalInfo = lazy(() => import('./pages/worker/PersonalInfo'))
 const WorkerJobSummary = lazy(() => import('./pages/worker/JobSummary'))
 const PendingApproval = lazy(() => import('./pages/worker/PendingApproval'))
+const ResubmitProfile = lazy(() => import('./pages/worker/ResubmitProfile'))
 
 const CustomerWallet = lazy(() => import('./pages/customer/Wallet'))
 const WorkerWallet = lazy(() => import('./pages/worker/Wallet'))
@@ -61,6 +62,7 @@ const AdminRevenue = lazy(() => import('./pages/admin/Revenue'))
 const AdminReports = lazy(() => import('./pages/admin/Reports'))
 
 import BrowserNotificationPrompt from './components/BrowserNotificationPrompt'
+import Splash from './components/Splash'
 
 function roleHome(role: string, approvalStatus?: string) {
   if (role === 'customer') return '/customer/home'
@@ -77,7 +79,7 @@ function completionRoute(role: string) {
 
 function ProtectedRoute({ allowedRoles }: { allowedRoles?: string[] }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-surface">Loading...</div>
+  if (loading) return <Splash />
   if (!user) return <Navigate to="/login" replace />
   if (!user.profile_complete) return <Navigate to={completionRoute(user.role)} replace />
   if (user.role === 'worker' && user.approval_status !== 'approved') return <Navigate to="/worker/pending-approval" replace />
@@ -88,12 +90,7 @@ function ProtectedRoute({ allowedRoles }: { allowedRoles?: string[] }) {
 function AuthRoute() {
   const { user, loading } = useAuth()
   // Only show spinner on true initial load (no user yet and still loading)
-  if (loading && !user) return (
-    <div className="min-h-screen bg-white flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-      <p className="text-sm text-text-secondary">Loading...</p>
-    </div>
-  )
+  if (loading && !user) return <Splash />
   if (user) {
     if (!user.profile_complete) return <Navigate to={completionRoute(user.role)} replace />
     return <Navigate to={roleHome(user.role, user.approval_status)} replace />
@@ -103,7 +100,7 @@ function AuthRoute() {
 
 function ProfileCompletionRoute() {
   const { user, loading } = useAuth()
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-surface">Loading...</div>
+  if (loading) return <Splash />
   if (!user) return <Navigate to="/login" replace />
   if (user.profile_complete) return <Navigate to={roleHome(user.role, user.approval_status)} replace />
   return <Outlet />
@@ -121,7 +118,7 @@ export function AppRouter() {
   return (
     <AuthProvider>
       <BrowserNotificationPrompt />
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-surface"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <Suspense fallback={<Splash />}>
       <Routes>
 
         <Route element={<AppShell />}>
@@ -136,6 +133,7 @@ export function AppRouter() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/worker/pending-approval" element={<PendingApproval />} />
+          <Route path="/worker/resubmit" element={<ResubmitProfile />} />
 
           <Route element={<ProfileCompletionRoute />}>
             <Route path="/complete-profile/customer" element={<CompleteCustomerProfile />} />
