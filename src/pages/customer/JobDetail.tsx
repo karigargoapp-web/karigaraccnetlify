@@ -7,7 +7,6 @@ import { TILE_URL, TILE_ATTRIBUTION } from '../../lib/mapTiles'
 import { supabase } from '../../lib/supabase'
 import toast from 'react-hot-toast'
 import type { Job, Bid } from '../../types'
-import { MAX_INSPECTION_CHARGE } from '../../types'
 import { parseMediaUrls, isVideoUrl } from '../../utils/media'
 
 const workerBidIcon = L.divIcon({
@@ -88,12 +87,13 @@ export default function JobDetail() {
   const acceptBid = async (bid: Bid) => {
     if (!job) return
     setAccepting(bid.id)
-    const { data: wal } = await supabase.from('wallets').select('balance').eq('user_id', job.customer_id).maybeSingle()
-    if (!wal || (wal.balance || 0) < MAX_INSPECTION_CHARGE) {
-      setAccepting(null)
-      return toast.error(`Top up your wallet to accept this bid. You need at least ₨${MAX_INSPECTION_CHARGE} in your wallet.`)
-    }
     const discount = useRewardBid === bid.id ? Math.min(rewardPoints, bid.inspection_charges) : 0
+    const payable = Math.max(0, bid.inspection_charges - discount)
+    const { data: wal } = await supabase.from('wallets').select('balance').eq('user_id', job.customer_id).maybeSingle()
+    if (!wal || (wal.balance || 0) < payable) {
+      setAccepting(null)
+      return toast.error(`Top up your wallet to accept this bid. You need ₨${payable.toLocaleString()} in your wallet.`)
+    }
     const { error } = await supabase.rpc('fn_lock_inspection_escrow', {
       p_job_id: jobId,
       p_customer_id: job!.customer_id,
@@ -103,7 +103,7 @@ export default function JobDetail() {
     })
     if (error) {
       setAccepting(null)
-      if (error.message.includes('insufficient_balance')) return toast.error(`Top up your wallet to accept this bid. You need at least ₨${MAX_INSPECTION_CHARGE} in your wallet.`)
+      if (error.message.includes('insufficient_balance')) return toast.error(`Top up your wallet to accept this bid. You need ₨${payable.toLocaleString()} in your wallet.`)
       if (error.message.includes('job_not_pending') || error.message.includes('bid_not_found')) return toast.error('This bid is no longer available.')
       if (error.message.includes('worker_insufficient_balance')) return toast.error('Worker has insufficient balance (needs ₨20).')
       if (error.message.includes('insufficient_reward_points')) return toast.error('Not enough reward points')

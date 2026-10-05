@@ -228,12 +228,14 @@ export default function JobBid() {
             <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
               <IoLocation className="text-primary" size={16} /> Job Location
             </p>
-            <button
-              onClick={() => setShowDirDialog(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-xl active:scale-[0.97] transition"
-            >
-              <IoNavigate size={14} /> Get Directions
-            </button>
+            {job.worker_id === user?.id && job.status !== 'pending' && (
+              <button
+                onClick={() => setShowDirDialog(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-xl active:scale-[0.97] transition"
+              >
+                <IoNavigate size={14} /> Get Directions
+              </button>
+            )}
           </div>
 
           {hasCoords ? (

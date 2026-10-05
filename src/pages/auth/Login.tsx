@@ -259,6 +259,7 @@ export default function Login() {
           </div>
         )}
       </div>
+      <p className="text-center text-[10px] text-text-muted py-3">Build {__BUILD_ID__}</p>
     </div>
   )
 }

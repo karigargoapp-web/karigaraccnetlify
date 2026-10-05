@@ -3,8 +3,9 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { IoArrowBack, IoCheckmarkCircle, IoCloudUpload, IoCamera, IoLockClosed } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { WORKER_SKILL_CATEGORIES } from '../../types'
-import { formatCNICDisplay, validateCNIC, validateImageFile } from '../../lib/validation'
+import { WORKER_SKILL_CATEGORIES, PAKISTAN_CITIES } from '../../types'
+import { formatCNICDisplay, normalizePhone, phoneVariants, validateCNIC, validateImageFile, validatePakistanPhone, validatePersonName } from '../../lib/validation'
+import PhoneInput from '../../components/PhoneInput'
 import { MAX_WORKER_SKILLS } from '../../lib/skills'
 import { uploadPublic, withTimeout } from '../../lib/image'
 import FieldError from '../../components/FieldError'
@@ -20,6 +21,9 @@ interface Profile {
 
 const LABELS: Record<string, string> = {
   photo: 'Profile photo',
+  name: 'Full name',
+  phone: 'Phone number',
+  city: 'City',
   cnic: 'CNIC number',
   cnic_front: 'CNIC front image',
   cnic_back: 'CNIC back image',
@@ -40,9 +44,15 @@ export default function ResubmitProfile() {
   const [cnicFront, setCnicFront] = useState<File | null>(null)
   const [cnicBack, setCnicBack] = useState<File | null>(null)
   const [skills, setSkills] = useState<string[]>([])
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [city, setCity] = useState('')
 
   useEffect(() => {
     if (!user) return
+    setName(user.name || '')
+    setPhone(normalizePhone(user.phone || ''))
+    setCity(user.city || '')
     supabase.from('worker_profiles').select('skills,cnic,cnic_front_url,cnic_back_url').eq('user_id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -59,7 +69,7 @@ export default function ResubmitProfile() {
 
   const fields = user.rejection_fields && user.rejection_fields.length > 0
     ? user.rejection_fields
-    : ['photo', 'cnic', 'cnic_front', 'cnic_back', 'skills']
+    : ['photo', 'name', 'phone', 'city', 'skills', 'cnic', 'cnic_front', 'cnic_back']
   const needs = (k: string) => fields.includes(k)
   const clear = (k: string) => setErrors(p => (p[k] ? { ...p, [k]: '' } : p))
 
@@ -85,6 +95,9 @@ export default function ResubmitProfile() {
     if (needs('cnic_front')) { const e = validateImageFile(cnicFront, { required: true }); if (e) next.cnic_front = e }
     if (needs('cnic_back')) { const e = validateImageFile(cnicBack, { required: true }); if (e) next.cnic_back = e }
     if (needs('skills') && skills.length === 0) next.skills = 'Select at least one skill'
+    if (needs('name')) { const e = validatePersonName(name); if (e) next.name = e }
+    if (needs('phone')) { const e = validatePakistanPhone(phone, { optional: false }); if (e) next.phone = e }
+    if (needs('city') && !city) next.city = 'Please select your city'
     setErrors(next)
     if (Object.keys(next).length > 0) return
 
@@ -92,6 +105,10 @@ export default function ResubmitProfile() {
     lockRef.current = true
     setLoading(true)
     try {
+      if (needs('phone')) {
+        const { data: taken } = await withTimeout(supabase.rpc('fn_phone_exists', { p_phones: phoneVariants(phone) }))
+        if (taken === true) { setErrors({ phone: 'This phone number is already registered with another account.' }); return }
+      }
       const ts = Date.now()
       const [photoUrl, frontUrl, backUrl] = await Promise.all([
         needs('photo') && photo ? uploadPublic('avatars', `${user.id}_${ts}.jpg`, photo) : Promise.resolve(null),
@@ -105,6 +122,9 @@ export default function ResubmitProfile() {
         p_cnic_back_url: backUrl,
         p_photo_url: photoUrl,
         p_skills: needs('skills') ? skills : null,
+        p_name: needs('name') ? name.trim() : null,
+        p_phone: needs('phone') ? normalizePhone(phone) : null,
+        p_city: needs('city') ? city : null,
       }))
       if (error) throw error
 
@@ -142,7 +162,6 @@ export default function ResubmitProfile() {
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
           <p className="text-sm font-semibold text-red-700 mb-1">Support asked you to fix:</p>
           <p className="text-sm text-red-700">{fields.map(f => LABELS[f]).filter(Boolean).join(', ')}</p>
-          {user.rejection_reason && <p className="text-xs text-red-600 mt-2">Reason: {user.rejection_reason}</p>}
         </div>
 
         <div>
@@ -168,6 +187,39 @@ export default function ResubmitProfile() {
             </div>
           )}
           <FieldError message={errors.photo} />
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-text-primary mb-2">Full name</p>
+          {needs('name') ? (
+            <>
+              <input value={name} maxLength={80} onChange={e => { setName(e.target.value.replace(/[^a-zA-Z\s]/g, '')); clear('name') }} className={errors.name ? 'field-error' : ''} />
+              <FieldError message={errors.name} />
+            </>
+          ) : <ReadOnly label="Full name" value={user.name || ''} />}
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-text-primary mb-2">Phone number</p>
+          {needs('phone') ? (
+            <>
+              <PhoneInput value={phone} onChange={v => { setPhone(v); clear('phone') }} hasError={!!errors.phone} />
+              <FieldError message={errors.phone} />
+            </>
+          ) : <ReadOnly label="Phone number" value={normalizePhone(user.phone || '')} />}
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-text-primary mb-2">City</p>
+          {needs('city') ? (
+            <>
+              <select value={city} onChange={e => { setCity(e.target.value); clear('city') }} className={errors.city ? 'field-error' : ''}>
+                <option value="">Select city</option>
+                {PAKISTAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <FieldError message={errors.city} />
+            </>
+          ) : <ReadOnly label="City" value={user.city || ''} />}
         </div>
 
         <div>

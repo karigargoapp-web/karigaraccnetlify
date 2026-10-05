@@ -307,19 +307,24 @@ export default function WorkerSignup({ oauth = false }: { oauth?: boolean }) {
         {step === 0 && (
           <div className="space-y-4 animate-fade-in">
             {isOAuth ? (
-              <div className="flex items-center gap-3 bg-surface rounded-2xl px-4 py-3">
-                {photoPreview ? (
-                  <img src={photoPreview} className="w-12 h-12 rounded-full object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                    <span className="text-primary font-bold text-lg">{name?.[0]}</span>
+              <>
+                <div className="flex justify-center mb-2">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-24 h-24 rounded-full border-2 border-primary bg-primary/5 flex items-center justify-center overflow-hidden">
+                      {photoPreview ? <img src={photoPreview} className="w-full h-full object-cover" /> : <IoCamera size={28} className="text-text-muted" />}
+                    </div>
+                    <p className="text-xs text-text-muted">Profile photo / پروفائل تصویر</p>
                   </div>
-                )}
-                <div>
-                  <p className="text-sm font-semibold text-text-primary">{name}</p>
-                  <p className="text-xs text-text-muted">{email}</p>
                 </div>
-              </div>
+                <div>
+                  <label className="text-sm text-text-secondary mb-1.5 block"><Bi en="Full Name" ur="پورا نام" required /></label>
+                  <input value={name} disabled readOnly />
+                </div>
+                <div>
+                  <label className="text-sm text-text-secondary mb-1.5 block"><Bi en="Email" ur="ای میل" required /></label>
+                  <input value={email} disabled readOnly />
+                </div>
+              </>
             ) : (
             <>
             <div className="flex justify-center mb-2">

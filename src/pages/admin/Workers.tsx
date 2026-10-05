@@ -5,6 +5,8 @@ import { IoSearch, IoCheckmark, IoClose, IoEye, IoRefresh, IoPersonCircle } from
 import toast from 'react-hot-toast'
 import { useAuth } from '../../hooks/useAuth'
 import SignedImage from '../../components/SignedImage'
+import RejectFieldsPicker, { rejectReasonText } from '../../components/admin/RejectFieldsPicker'
+import { invokeMailer } from '../../lib/mailer'
 import { signedDocUrl } from '../../lib/docs'
 
 type Tab = 'pending' | 'approved' | 'rejected'
@@ -53,16 +55,19 @@ export default function AdminWorkers() {
     await supabase.from('worker_profiles').update({ approval_reviewed_by:user?.id, approval_reviewed_at:new Date().toISOString() }).eq('user_id',workerId)
     await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'worker_approved', entity_type:'user', entity_id:workerId })
     await supabase.from('notifications').insert({ user_id:workerId, type:'system', title:'Account Approved ✅', body:'Your account has been approved. You can now bid on jobs.' })
-    toast.success('Worker approved successfully')
+    const mail = await invokeMailer({ action: 'worker_status', worker_id: workerId, status: 'approved' })
+    toast.success(mail.emailed ? 'Worker approved and emailed' : 'Worker approved (email not sent)')
     fetchWorkers()
   }
 
-  async function reject(workerId: string, reason: string) {
-    const { error } = await supabase.from('users').update({ approval_status:'rejected', rejection_reason:reason }).eq('id',workerId)
+  async function reject(workerId: string, fields: string[]) {
+    const reason = rejectReasonText(fields)
+    const { error } = await supabase.from('users').update({ approval_status:'rejected', rejection_reason:reason, rejection_fields:fields }).eq('id',workerId)
     if (error) { toast.error('Failed to reject'); return }
     await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'worker_rejected', entity_type:'user', entity_id:workerId, notes:reason })
-    await supabase.from('notifications').insert({ user_id:workerId, type:'system', title:'Account Not Approved', body:`Your account was not approved. Reason: ${reason}` })
-    toast.success('Worker rejected')
+    await supabase.from('notifications').insert({ user_id:workerId, type:'system', title:'Account Not Approved', body:`${reason}. Open the app and tap Resubmit documents.` })
+    const mail = await invokeMailer({ action: 'worker_status', worker_id: workerId, status: 'rejected', reason, fields })
+    toast.success(mail.emailed ? 'Worker rejected and emailed' : 'Worker rejected (email not sent)')
     fetchWorkers()
   }
 
@@ -123,7 +128,7 @@ export default function AdminWorkers() {
           {filtered.map(w => (
             <WorkerCard key={w.id} worker={w} tab={tab}
               onApprove={() => approve(w.id)}
-              onReject={(reason: string) => reject(w.id, reason)}
+              onReject={(fields: string[]) => reject(w.id, fields)}
               onView={() => navigate(`/admin/workers/${w.id}`)} />
           ))}
         </div>
@@ -134,7 +139,7 @@ export default function AdminWorkers() {
 
 function WorkerCard({ worker, tab, onApprove, onReject, onView }: any) {
   const [showReject, setShowReject] = useState(false)
-  const [reason, setReason] = useState('')
+  const [fields, setFields] = useState<string[]>([])
   const [approving, setApproving] = useState(false)
   const wp = worker.worker_profile
 
@@ -238,11 +243,9 @@ function WorkerCard({ worker, tab, onApprove, onReject, onView }: any) {
 
         {showReject && (
           <div className="mt-3 flex gap-2">
-            <input value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="Enter rejection reason..."
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200" />
-            <button onClick={() => { if(reason.trim()){onReject(reason);setShowReject(false);setReason('')} }}
-              disabled={!reason.trim()}
+            <RejectFieldsPicker value={fields} onChange={setFields} />
+            <button onClick={() => { if(fields.length){onReject(fields);setShowReject(false);setFields([])} }}
+              disabled={fields.length === 0}
               className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-red-700">
               Confirm
             </button>

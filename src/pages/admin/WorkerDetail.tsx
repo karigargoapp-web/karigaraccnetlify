@@ -6,16 +6,10 @@ import { IoArrowBack, IoCheckmark, IoClose, IoStar, IoBriefcase, IoWallet } from
 import toast from 'react-hot-toast'
 import { JOB_STATUS_LABELS } from '../../types'
 import { invokeMailer } from '../../lib/mailer'
+import RejectFieldsPicker, { rejectReasonText } from '../../components/admin/RejectFieldsPicker'
 import SignedImage from '../../components/SignedImage'
 import { signedDocUrl } from '../../lib/docs'
 
-const FIX_FIELDS = [
-  { key: 'photo', label: 'Profile photo' },
-  { key: 'cnic', label: 'CNIC number' },
-  { key: 'cnic_front', label: 'CNIC front' },
-  { key: 'cnic_back', label: 'CNIC back' },
-  { key: 'skills', label: 'Skills' },
-]
 
 export default function AdminWorkerDetail() {
   const { workerId } = useParams()
@@ -25,7 +19,6 @@ export default function AdminWorkerDetail() {
   const [profile, setProfile] = useState<any>(null)
   const [jobs, setJobs] = useState<any[]>([])
   const [wallet, setWallet] = useState<any>(null)
-  const [rejectReason, setRejectReason] = useState('')
   const [showReject, setShowReject] = useState(false)
   const [rejectFields, setRejectFields] = useState<string[]>([])
   const [lightbox, setLightbox] = useState<string|null>(null)
@@ -59,15 +52,16 @@ export default function AdminWorkerDetail() {
   }
 
   async function reject() {
-    if (!rejectReason.trim() || rejectFields.length === 0) return
-    await supabase.from('users').update({ approval_status:'rejected', rejection_reason:rejectReason, rejection_fields:rejectFields }).eq('id',workerId)
-    await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'worker_rejected', entity_type:'user', entity_id:workerId, notes:rejectReason })
-    await supabase.from('notifications').insert({ user_id:workerId, type:'system', title:'Account Not Approved', body:`Your account was not approved. Reason: ${rejectReason}` })
-    const mail = await invokeMailer({ action: 'worker_status', worker_id: workerId, status: 'rejected', reason: rejectReason, fields: rejectFields })
+    if (rejectFields.length === 0) return
+    const reason = rejectReasonText(rejectFields)
+    const { error } = await supabase.from('users').update({ approval_status:'rejected', rejection_reason:reason, rejection_fields:rejectFields }).eq('id',workerId)
+    if (error) { toast.error('Failed to reject'); return }
+    await supabase.from('admin_actions').insert({ admin_id:user?.id, action_type:'worker_rejected', entity_type:'user', entity_id:workerId, notes:reason })
+    await supabase.from('notifications').insert({ user_id:workerId, type:'system', title:'Account Not Approved', body:`${reason}. Open the app and tap Resubmit documents.` })
+    const mail = await invokeMailer({ action: 'worker_status', worker_id: workerId, status: 'rejected', reason, fields: rejectFields })
     toast.success(mail.emailed ? 'Worker rejected and emailed' : 'Worker rejected (email not sent)')
     setShowReject(false)
     setRejectFields([])
-    setRejectReason('')
     fetchAll()
   }
 
@@ -155,25 +149,9 @@ export default function AdminWorkerDetail() {
         </div>
 
         {showReject && (
-          <div className="mt-3 space-y-3">
-            <div>
-              <p className="text-xs font-medium text-gray-600 mb-2">What does the worker need to fix?</p>
-              <div className="flex flex-wrap gap-2">
-                {FIX_FIELDS.map(f => (
-                  <label key={f.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm cursor-pointer ${rejectFields.includes(f.key) ? 'border-red-300 bg-red-50 text-red-700' : 'border-gray-200 text-gray-600'}`}>
-                    <input type="checkbox" className="hidden" checked={rejectFields.includes(f.key)}
-                      onChange={() => setRejectFields(prev => prev.includes(f.key) ? prev.filter(x => x !== f.key) : [...prev, f.key])} />
-                    {f.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                placeholder="Rejection reason..."
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"/>
-              <button onClick={reject} disabled={!rejectReason.trim() || rejectFields.length === 0} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium disabled:opacity-40">Confirm</button>
-            </div>
+          <div className="mt-3 flex gap-2">
+            <RejectFieldsPicker value={rejectFields} onChange={setRejectFields} />
+            <button onClick={reject} disabled={rejectFields.length === 0} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium disabled:opacity-40">Confirm</button>
           </div>
         )}
 
