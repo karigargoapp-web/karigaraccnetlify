@@ -4,7 +4,7 @@ import { IoLogoGoogle, IoMail, IoLockClosed, IoLanguage, IoEyeOutline, IoEyeOffO
 import { supabase } from '../../lib/supabase'
 import { emailRedirect, isNativeApp } from '../../lib/authRedirect'
 import { signInWithGoogleNative } from '../../lib/nativeAuth'
-import { assertEmailConfirmed } from '../../lib/authRole'
+import { rejectIfEmailUnconfirmed } from '../../lib/authRole'
 import { validateEmail } from '../../lib/validation'
 import { useI18n } from '../../lib/i18n'
 import { useAuth } from '../../hooks/useAuth'
@@ -61,17 +61,17 @@ export default function Login() {
       return
     }
 
-    const emailCheck = await assertEmailConfirmed()
-    if (!emailCheck.ok) {
-      setLoading(false)
-      setShowResend(true)
-      return toast.error(emailCheck.message)
-    }
-
     if (!signInData.user || !signInData.session) {
       setLoading(false)
       toast.error('Login failed. Please try again.')
       return
+    }
+
+    const emailCheck = await rejectIfEmailUnconfirmed(signInData.user)
+    if (!emailCheck.ok) {
+      setLoading(false)
+      setShowResend(true)
+      return toast.error(emailCheck.message)
     }
 
     // Directly fetch user profile — do NOT wait for onAuthStateChange

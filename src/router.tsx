@@ -1,63 +1,64 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 
 import Login from './pages/auth/Login'
 import WorkerLogin from './pages/auth/WorkerLogin'
-import CustomerSignup from './pages/auth/CustomerSignup'
-import WorkerSignup from './pages/auth/WorkerSignup'
-import EmailConfirmed from './pages/auth/EmailConfirmed'
-import CompleteCustomerProfile from './pages/auth/CompleteCustomerProfile'
-import CompleteWorkerProfile from './pages/auth/CompleteWorkerProfile'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import ResetPassword from './pages/auth/ResetPassword'
+const CustomerSignup = lazy(() => import('./pages/auth/CustomerSignup'))
+const WorkerSignup = lazy(() => import('./pages/auth/WorkerSignup'))
+const EmailConfirmed = lazy(() => import('./pages/auth/EmailConfirmed'))
+const CompleteCustomerProfile = lazy(() => import('./pages/auth/CompleteCustomerProfile'))
+const CompleteWorkerProfile = lazy(() => import('./pages/auth/CompleteWorkerProfile'))
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 
-import CustomerHome from './pages/customer/Home'
-import PostJob from './pages/customer/PostJob'
-import CustomerMyJobs from './pages/customer/MyJobs'
-import CustomerJobDetail from './pages/customer/JobDetail'
-import CustomerActiveJob from './pages/customer/ActiveJob'
-import CustomerReceipt from './pages/customer/Receipt'
-import ReviewWorker from './pages/customer/ReviewWorker'
-import ViewWorkerProfile from './pages/customer/WorkerProfile'
-import CustomerProfile from './pages/customer/Profile'
-import CustomerMessages from './pages/customer/Messages'
-import ChangePassword from './pages/customer/ChangePassword'
-import CustomerNotifications from './pages/customer/Notifications'
-import CustomerPersonalInfo from './pages/customer/PersonalInfo'
-import CustomerJobSummary from './pages/customer/JobSummary'
-import TrackingScreen from './pages/customer/TrackingScreen'
-import ChatPage from './pages/ChatPage'
-import HelpSupport from './pages/shared/HelpSupport'
-import LanguageSelection from './pages/shared/LanguageSelection'
+const CustomerHome = lazy(() => import('./pages/customer/Home'))
+const PostJob = lazy(() => import('./pages/customer/PostJob'))
+const CustomerMyJobs = lazy(() => import('./pages/customer/MyJobs'))
+const CustomerJobDetail = lazy(() => import('./pages/customer/JobDetail'))
+const CustomerActiveJob = lazy(() => import('./pages/customer/ActiveJob'))
+const CustomerReceipt = lazy(() => import('./pages/customer/Receipt'))
+const ReviewWorker = lazy(() => import('./pages/customer/ReviewWorker'))
+const ViewWorkerProfile = lazy(() => import('./pages/customer/WorkerProfile'))
+const CustomerProfile = lazy(() => import('./pages/customer/Profile'))
+const CustomerMessages = lazy(() => import('./pages/customer/Messages'))
+const ChangePassword = lazy(() => import('./pages/customer/ChangePassword'))
+const CustomerNotifications = lazy(() => import('./pages/customer/Notifications'))
+const CustomerPersonalInfo = lazy(() => import('./pages/customer/PersonalInfo'))
+const CustomerJobSummary = lazy(() => import('./pages/customer/JobSummary'))
+const TrackingScreen = lazy(() => import('./pages/customer/TrackingScreen'))
+const ChatPage = lazy(() => import('./pages/ChatPage'))
+const HelpSupport = lazy(() => import('./pages/shared/HelpSupport'))
+const LanguageSelection = lazy(() => import('./pages/shared/LanguageSelection'))
 
-import WorkerDashboard from './pages/worker/Dashboard'
-import JobBid from './pages/worker/JobBid'
-import WorkerActiveJob from './pages/worker/ActiveJob'
-import WorkerMyBids from './pages/worker/MyBids'
-import WorkerEarnings from './pages/worker/Earnings'
-import WorkerReviews from './pages/worker/ReviewsReceived'
-import ReviewCustomer from './pages/worker/ReviewCustomer'
-import WorkerProfile from './pages/worker/Profile'
-import WorkerMessages from './pages/worker/Messages'
-import WorkerChangePassword from './pages/worker/ChangePassword'
-import WorkerPersonalInfo from './pages/worker/PersonalInfo'
-import WorkerJobSummary from './pages/worker/JobSummary'
-import PendingApproval from './pages/worker/PendingApproval'
+const WorkerDashboard = lazy(() => import('./pages/worker/Dashboard'))
+const JobBid = lazy(() => import('./pages/worker/JobBid'))
+const WorkerActiveJob = lazy(() => import('./pages/worker/ActiveJob'))
+const WorkerMyBids = lazy(() => import('./pages/worker/MyBids'))
+const WorkerEarnings = lazy(() => import('./pages/worker/Earnings'))
+const WorkerReviews = lazy(() => import('./pages/worker/ReviewsReceived'))
+const ReviewCustomer = lazy(() => import('./pages/worker/ReviewCustomer'))
+const WorkerProfile = lazy(() => import('./pages/worker/Profile'))
+const WorkerMessages = lazy(() => import('./pages/worker/Messages'))
+const WorkerChangePassword = lazy(() => import('./pages/worker/ChangePassword'))
+const WorkerPersonalInfo = lazy(() => import('./pages/worker/PersonalInfo'))
+const WorkerJobSummary = lazy(() => import('./pages/worker/JobSummary'))
+const PendingApproval = lazy(() => import('./pages/worker/PendingApproval'))
 
-import CustomerWallet from './pages/customer/Wallet'
-import WorkerWallet from './pages/worker/Wallet'
-import AdminLayout from './layouts/AdminLayout'
-import AdminDashboard from './pages/admin/Dashboard'
-import AdminUsers from './pages/admin/Users'
-import AdminWorkers from './pages/admin/Workers'
-import AdminWorkerDetail from './pages/admin/WorkerDetail'
-import AdminJobs from './pages/admin/Jobs'
-import AdminJobDetail from './pages/admin/JobDetail'
-import AdminDisputes from './pages/admin/Disputes'
-import AdminDisputeDetail from './pages/admin/DisputeDetail'
-import AdminWallets from './pages/admin/Wallets'
-import AdminRevenue from './pages/admin/Revenue'
-import AdminReports from './pages/admin/Reports'
+const CustomerWallet = lazy(() => import('./pages/customer/Wallet'))
+const WorkerWallet = lazy(() => import('./pages/worker/Wallet'))
+const AdminLayout = lazy(() => import('./layouts/AdminLayout'))
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
+const AdminUsers = lazy(() => import('./pages/admin/Users'))
+const AdminWorkers = lazy(() => import('./pages/admin/Workers'))
+const AdminWorkerDetail = lazy(() => import('./pages/admin/WorkerDetail'))
+const AdminJobs = lazy(() => import('./pages/admin/Jobs'))
+const AdminJobDetail = lazy(() => import('./pages/admin/JobDetail'))
+const AdminDisputes = lazy(() => import('./pages/admin/Disputes'))
+const AdminDisputeDetail = lazy(() => import('./pages/admin/DisputeDetail'))
+const AdminWallets = lazy(() => import('./pages/admin/Wallets'))
+const AdminRevenue = lazy(() => import('./pages/admin/Revenue'))
+const AdminReports = lazy(() => import('./pages/admin/Reports'))
 
 import BrowserNotificationPrompt from './components/BrowserNotificationPrompt'
 
@@ -70,7 +71,7 @@ function roleHome(role: string, approvalStatus?: string) {
 
 function completionRoute(role: string) {
   if (role === 'customer') return '/complete-profile/customer'
-  if (role === 'worker') return '/signup/worker'
+  if (role === 'worker') return '/complete-profile/worker'
   return '/login'
 }
 
@@ -120,6 +121,7 @@ export function AppRouter() {
   return (
     <AuthProvider>
       <BrowserNotificationPrompt />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-surface"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
       <Routes>
 
         <Route element={<AppShell />}>
@@ -200,6 +202,7 @@ export function AppRouter() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      </Suspense>
     </AuthProvider>
   )
 }

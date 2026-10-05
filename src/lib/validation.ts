@@ -161,3 +161,16 @@ export function validateCertificateFile(file: File): string | null {
   if (file.size > MAX_CERT_BYTES) return 'Each certificate must be 10MB or smaller'
   return null
 }
+
+export function normalizePhone(raw: string): string {
+  const t = raw.trim().replace(/\D/g, '')
+  if (t.startsWith('0') && t.length === 11) return '+92' + t.slice(1)
+  if (t.startsWith('92') && t.length === 12) return '+' + t
+  return raw.trim()
+}
+
+export function phoneVariants(raw: string): string[] {
+  const n = normalizePhone(raw)
+  const local = n.startsWith('+92') ? '0' + n.slice(3) : n
+  return Array.from(new Set([n, local]))
+}

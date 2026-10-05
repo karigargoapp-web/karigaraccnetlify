@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IoArrowBack, IoCamera, IoCheckmarkCircle, IoCloudUpload, IoClose, IoLanguage } from 'react-icons/io5'
+import { IoArrowBack, IoCamera, IoCloudUpload, IoClose, IoLanguage } from 'react-icons/io5'
 import { supabase } from '../../lib/supabase'
 import { emailRedirect } from '../../lib/authRedirect'
 import { PAKISTAN_CITIES } from '../../types'
+import FieldError from '../../components/FieldError'
 import {
-  formatCNICDisplay,
   PASSWORD_HINT,
-  validateCNIC,
   validateEmail,
   validateImageFile,
   validatePassword,
   validatePersonName,
+  validatePakistanPhone,
+  normalizePhone,
+  phoneVariants,
 } from '../../lib/validation'
 import { useI18n } from '../../lib/i18n'
 import toast from 'react-hot-toast'
@@ -26,9 +28,7 @@ export default function CustomerSignup() {
   const [city, setCity] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
-  const [cnic, setCnic] = useState('')
-  const [cnicFront, setCnicFront] = useState<File | null>(null)
-  const [cnicBack, setCnicBack] = useState<File | null>(null)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
@@ -89,52 +89,38 @@ export default function CustomerSignup() {
     }
   }, [showCamera])
 
-  const uploadFile = async (file: File, folder: string) => {
-    const path = `${folder}/${Date.now()}_${file.name}`
-    await supabase.storage.from('signup-docs').upload(path, file)
-    const { data } = supabase.storage.from('signup-docs').getPublicUrl(path)
-    return data.publicUrl
-  }
-
   const handleSubmit = async () => {
-    // Debug: log which Supabase project we're using
-    
-    const fieldErr =
-      (!photo ? 'Please upload a profile photo' : null) ||
-      validatePersonName(name) ||
-      validateEmail(email) ||
-      validatePassword(password) ||
-      (!phone ? 'Please enter your phone number' : null) ||
-      (!city ? 'Please select your city' : null) ||
-      validateCNIC(cnic) ||
-      validateImageFile(cnicFront, { required: true }) ||
-      validateImageFile(cnicBack, { required: true })
-    if (fieldErr) return toast.error(fieldErr)
-    const pe = validateImageFile(photo!, { required: false })
-    if (pe) return toast.error(pe)
+    const next: Record<string, string> = {}
+    if (!photo) next.photo = 'Please upload a profile photo'
+    else { const pe = validateImageFile(photo, { required: false }); if (pe) next.photo = pe }
+    const nameErr = validatePersonName(name); if (nameErr) next.name = nameErr
+    const emailErr = validateEmail(email); if (emailErr) next.email = emailErr
+    const phoneErr = phone ? validatePakistanPhone(phone, { optional: false }) : 'Please enter your phone number'
+    if (phoneErr) next.phone = phoneErr
+    const passErr = validatePassword(password); if (passErr) next.password = passErr
+    if (!city) next.city = 'Please select your city'
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
 
     if (submitLockRef.current) return
     submitLockRef.current = true
     setLoading(true)
 
-    const rawPhone = phone.trim()
-    const phoneForDb = rawPhone.startsWith('0') ? '+92' + rawPhone.slice(1) : rawPhone
-    if (rawPhone) {
-      const { data: existingPhone, error: phoneCheckError } = await supabase.from('users').select('id').eq('phone', phoneForDb).maybeSingle()
-      if (phoneCheckError) {
-
-        toast.error('Could not verify phone number. Please try again.')
-        setLoading(false)
-        return
-      }
-      if (existingPhone) {
-        toast.error('This phone number is already registered. Please use a different number or login.')
-        setLoading(false)
-        return
-      }
+    const phoneForDb = normalizePhone(phone)
+    const { data: existingPhone, error: phoneCheckError } = await supabase
+      .from('users').select('id').in('phone', phoneVariants(phone)).limit(1)
+    if (phoneCheckError) {
+      toast.error('Could not verify phone number. Please try again.')
+      setLoading(false)
+      submitLockRef.current = false
+      return
     }
-
-    const cnicFormatted = formatCNICDisplay(cnic)
+    if (existingPhone && existingPhone.length > 0) {
+      setErrors({ phone: 'This phone number is already registered. Use a different number or log in.' })
+      setLoading(false)
+      submitLockRef.current = false
+      return
+    }
 
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -146,6 +132,10 @@ export default function CustomerSignup() {
         const msg = authError.message?.toLowerCase() || ''
         if (msg.includes('rate') || msg.includes('too many')) {
           toast.error('Too many signup attempts. Please wait a few minutes and try again.')
+        } else if (msg.includes('password')) {
+          setErrors({ password: authError.message })
+        } else if (msg.includes('email')) {
+          setErrors({ email: authError.message })
         } else {
           toast.error(authError.message)
         }
@@ -159,38 +149,23 @@ export default function CustomerSignup() {
       // Supabase silently returns a fake user when the email already exists
       // (identities array is empty). The fake UUID is not in auth.users → FK violation.
       if ((authData.user?.identities?.length ?? 0) === 0) {
-        toast.error('An account with this email already exists. Please log in instead.')
+        setErrors({ email: 'An account with this email already exists. Please log in instead.' })
         return
       }
 
       let photoUrl = ''
-      let cnicFrontUrl = ''
-      let cnicBackUrl = ''
-
-      const uploadTasks: Promise<any>[] = [
-        uploadFile(cnicFront!, 'cnic').then(url => cnicFrontUrl = url),
-        uploadFile(cnicBack!, 'cnic').then(url => cnicBackUrl = url)
-      ]
-
       if (photo) {
         const path = `avatars/${userId}_${Date.now()}.jpg`
-        uploadTasks.push(
-          supabase.storage.from('avatars').upload(path, photo).then(({ error }) => {
-            if (error) throw error
-            const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-            photoUrl = data.publicUrl
-          })
-        )
+        const { error: upErr } = await supabase.storage.from('avatars').upload(path, photo)
+        if (upErr) throw upErr
+        photoUrl = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
       }
-
-      // Execute all uploads concurrently
-      await Promise.all(uploadTasks)
 
       const { error: insertErr } = await supabase.rpc('handle_signup_user', {
         p_id: userId,
         p_name: name,
         p_email: email,
-        p_phone: phone,
+        p_phone: phoneForDb,
         p_role: 'customer',
         p_city: city || null,
         p_profile_photo_url: photoUrl || null,
@@ -200,9 +175,6 @@ export default function CustomerSignup() {
 
       const { error: completeErr } = await supabase.rpc('handle_complete_signup_profile', {
         p_id: userId,
-        p_cnic: cnicFormatted,
-        p_cnic_front_url: cnicFrontUrl,
-        p_cnic_back_url: cnicBackUrl,
         p_profile_complete: true,
       })
       if (completeErr) throw completeErr
@@ -267,6 +239,7 @@ export default function CustomerSignup() {
               )}
             </div>
             <p className="text-xs text-text-muted">Profile photo *</p>
+            <FieldError message={errors.photo} />
             <div className="flex gap-2">
               <button
                 type="button"
@@ -297,13 +270,15 @@ export default function CustomerSignup() {
             placeholder="Enter your name"
             value={name}
             onChange={e => {
-              // Only allow letters and spaces
               const cleaned = e.target.value.replace(/[^a-zA-Z\s]/g, '')
               setName(cleaned)
+              if (errors.name) setErrors(p => ({ ...p, name: '' }))
             }}
+            className={errors.name ? 'field-error' : ''}
             maxLength={80}
             autoComplete="name"
           />
+          <FieldError message={errors.name} />
         </div>
         <div>
           <label className="text-sm text-text-secondary mb-1.5 block">Email *</label>
@@ -311,8 +286,10 @@ export default function CustomerSignup() {
             type="email"
             placeholder="you@example.com"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={e => { setEmail(e.target.value); if (errors.email) setErrors(p => ({ ...p, email: '' })) }}
+            className={errors.email ? 'field-error' : ''}
           />
+          <FieldError message={errors.email} />
         </div>
         <div>
           <label className="text-sm text-text-secondary mb-1.5 block">Phone Number *</label>
@@ -321,12 +298,14 @@ export default function CustomerSignup() {
             placeholder="03XX-XXXXXXX"
             value={phone}
             onChange={e => {
-              // Only allow numbers
               const cleaned = e.target.value.replace(/[^0-9]/g, '')
               setPhone(cleaned)
+              if (errors.phone) setErrors(p => ({ ...p, phone: '' }))
             }}
+            className={errors.phone ? 'field-error' : ''}
             maxLength={11}
           />
+          <FieldError message={errors.phone} />
         </div>
         <div>
           <label className="text-sm text-text-secondary mb-1.5 block">Password *</label>
@@ -334,17 +313,19 @@ export default function CustomerSignup() {
             type="password"
             placeholder="Create a password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => { setPassword(e.target.value); if (errors.password) setErrors(p => ({ ...p, password: '' })) }}
+            className={errors.password ? 'field-error' : ''}
             autoComplete="new-password"
           />
+          <FieldError message={errors.password} />
           <p className="text-[11px] text-text-muted mt-1 leading-snug">{PASSWORD_HINT}</p>
         </div>
         <div>
           <label className="text-sm text-text-secondary mb-1.5 block">City *</label>
           <select
             value={city}
-            onChange={e => setCity(e.target.value)}
-            className={!city ? 'text-text-muted' : ''}
+            onChange={e => { setCity(e.target.value); if (errors.city) setErrors(p => ({ ...p, city: '' })) }}
+            className={`${!city ? 'text-text-muted' : ''} ${errors.city ? 'field-error' : ''}`}
           >
             <option value="">Select city</option>
             {PAKISTAN_CITIES.map(c => (
@@ -353,68 +334,7 @@ export default function CustomerSignup() {
               </option>
             ))}
           </select>
-        </div>
-
-        {/* CNIC Section */}
-        <div className="bg-surface rounded-2xl p-4 space-y-4">
-          <p className="text-sm font-semibold text-text-primary">CNIC Verification *</p>
-          <div>
-            <label className="text-sm text-text-secondary mb-1.5 block">CNIC Number *</label>
-            <input
-              placeholder="12345-1234567-1"
-              value={cnic}
-              onChange={e => {
-                // Only allow numbers and hyphens
-                const cleaned = e.target.value.replace(/[^0-9-]/g, '')
-                setCnic(cleaned)
-              }}
-              maxLength={15}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="cursor-pointer">
-              <div
-                className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition ${cnicFront ? 'border-primary bg-primary/5' : 'border-border'
-                  }`}
-              >
-                {cnicFront ? (
-                  <IoCheckmarkCircle size={28} className="text-primary" />
-                ) : (
-                  <IoCloudUpload size={28} className="text-text-muted" />
-                )}
-                <span className="text-xs text-text-secondary">
-                  {cnicFront ? 'Front ✓' : 'CNIC Front *'}
-                </span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => setCnicFront(e.target.files?.[0] || null)}
-              />
-            </label>
-            <label className="cursor-pointer">
-              <div
-                className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition ${cnicBack ? 'border-primary bg-primary/5' : 'border-border'
-                  }`}
-              >
-                {cnicBack ? (
-                  <IoCheckmarkCircle size={28} className="text-primary" />
-                ) : (
-                  <IoCloudUpload size={28} className="text-text-muted" />
-                )}
-                <span className="text-xs text-text-secondary">
-                  {cnicBack ? 'Back ✓' : 'CNIC Back *'}
-                </span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => setCnicBack(e.target.files?.[0] || null)}
-              />
-            </label>
-          </div>
+          <FieldError message={errors.city} />
         </div>
 
         <button onClick={handleSubmit} disabled={loading} className="btn-primary !mt-8">

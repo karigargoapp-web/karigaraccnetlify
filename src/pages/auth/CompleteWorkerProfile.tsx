@@ -6,15 +6,18 @@ import { useAuth } from '../../hooks/useAuth'
 import { WORKER_SKILL_CATEGORIES, PAKISTAN_CITIES } from '../../types'
 import {
   formatCNICDisplay,
+  normalizePhone,
+  phoneVariants,
   validateCNIC,
-  validateCertificateFile,
   validateImageFile,
   validatePakistanPhone,
-  validateWorkerBio,
 } from '../../lib/validation'
+import { MAX_WORKER_SKILLS } from '../../lib/skills'
+import { uploadPublic, withTimeout } from '../../lib/image'
+import FieldError from '../../components/FieldError'
 import toast from 'react-hot-toast'
 
-const STEPS = ['Skills & City', 'Documents', 'Bio']
+const STEPS = ['Skills & City', 'Documents']
 
 export default function CompleteWorkerProfile() {
   const nav = useNavigate()
@@ -22,104 +25,97 @@ export default function CompleteWorkerProfile() {
 
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const lockRef = useRef(false)
 
-  // Step 0
   const [skills, setSkills] = useState<string[]>([])
   const [city, setCity] = useState('')
   const [phone, setPhone] = useState('')
-
-  // Step 1
   const [cnic, setCnic] = useState('')
   const [cnicFront, setCnicFront] = useState<File | null>(null)
   const [cnicBack, setCnicBack] = useState<File | null>(null)
-  const [certificates, setCertificates] = useState<File[]>([])
 
-  // Step 2
-  const [bio, setBio] = useState('')
+  const clearError = (key: string) => setErrors(p => (p[key] ? { ...p, [key]: '' } : p))
 
-  const toggleSkill = (s: string) =>
-    setSkills(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+  const toggleSkill = (s: string) => {
+    setSkills(prev => {
+      if (prev.includes(s)) return prev.filter(x => x !== s)
+      if (prev.length >= MAX_WORKER_SKILLS) {
+        setErrors(p => ({ ...p, skills: `You can select a maximum of ${MAX_WORKER_SKILLS} skills` }))
+        return prev
+      }
+      clearError('skills')
+      return [...prev, s]
+    })
+  }
 
-  const uploadFile = async (file: File, folder: string) => {
-    const path = `${folder}/${Date.now()}_${file.name}`
-    await supabase.storage.from('signup-docs').upload(path, file)
-    const { data } = supabase.storage.from('signup-docs').getPublicUrl(path)
-    return data.publicUrl
+  const validateStep = (s: number) => {
+    const next: Record<string, string> = {}
+    if (s === 0) {
+      if (skills.length === 0) next.skills = 'Select at least one skill'
+      if (!city) next.city = 'Please select your city'
+      const ph = validatePakistanPhone(phone, { optional: false }); if (ph) next.phone = ph
+    }
+    if (s === 1) {
+      const c = validateCNIC(cnic); if (c) next.cnic = c
+      const f = validateImageFile(cnicFront, { required: true }); if (f) next.cnicFront = f
+      const b = validateImageFile(cnicBack, { required: true }); if (b) next.cnicBack = b
+    }
+    return next
   }
 
   const nextStep = () => {
-    if (step === 0) {
-      if (skills.length === 0 || !city) return toast.error('Select at least one skill and a city')
-      const phoneErr = validatePakistanPhone(phone, { optional: false })
-      if (phoneErr) return toast.error(phoneErr)
-    }
-    if (step === 1) {
-      const err =
-        validateCNIC(cnic) ||
-        validateImageFile(cnicFront, { required: true }) ||
-        validateImageFile(cnicBack, { required: true })
-      if (err) return toast.error(err)
-      for (const cert of certificates) {
-        const ce = validateCertificateFile(cert)
-        if (ce) return toast.error(ce)
-      }
-    }
-    setStep(s => Math.min(s + 1, 2))
+    const next = validateStep(0)
+    setErrors(next)
+    if (Object.keys(next).length === 0) setStep(1)
   }
 
   const handleSubmit = async () => {
-    const bioErr = validateWorkerBio(bio)
-    if (bioErr) return toast.error(bioErr)
-    if (!user) return
-
+    const next = validateStep(1)
+    setErrors(next)
+    if (Object.keys(next).length > 0 || !user) return
     if (lockRef.current) return
     lockRef.current = true
     setLoading(true)
 
     try {
-      const cnicFormatted = formatCNICDisplay(cnic)
-      const cnicFrontUrl = await uploadFile(cnicFront!, 'cnic')
-      const cnicBackUrl = await uploadFile(cnicBack!, 'cnic')
+      const phoneForDb = normalizePhone(phone)
+      const { data: existing } = await withTimeout(
+        supabase.from('users').select('id').in('phone', phoneVariants(phone)).neq('id', user.id).limit(1),
+      )
+      if (existing && existing.length > 0) {
+        setErrors({ phone: 'This phone number is already registered with another account.' })
+        setStep(0)
+        return
+      }
 
-      const certUrls: string[] = []
-      for (const cert of certificates) certUrls.push(await uploadFile(cert, 'certificates'))
+      const ts = Date.now()
+      const [cnicFrontUrl, cnicBackUrl] = await Promise.all([
+        uploadPublic('signup-docs', `cnic/${user.id}_${ts}_front.jpg`, cnicFront!),
+        uploadPublic('signup-docs', `cnic/${user.id}_${ts}_back.jpg`, cnicBack!),
+      ])
 
-      const rawPhone = phone.trim()
-      const phoneForDb = rawPhone.startsWith('0') ? '+92' + rawPhone.slice(1) : rawPhone
-
-      const { error: usersErr } = await supabase
-        .from('users')
-        .update({ city, phone: phoneForDb, profile_complete: true })
-        .eq('id', user.id)
-      if (usersErr) throw usersErr
-
-      const { error: profileErr } = await supabase
-        .from('worker_profiles')
-        .upsert({
-          user_id: user.id,
-          skills,
-          bio: bio || null,
-          cnic: cnicFormatted,
-          cnic_front_url: cnicFrontUrl,
-          cnic_back_url: cnicBackUrl,
-          certificate_urls: certUrls.length > 0 ? certUrls : null,
-          avg_rating: 0,
-          total_jobs: 0,
-          total_earnings: 0,
-        }, { onConflict: 'user_id' })
-        .eq('user_id', user.id)
-      if (profileErr) throw profileErr
+      const [usersRes, profileRes] = await withTimeout(Promise.all([
+        supabase.from('users').update({ city, phone: phoneForDb, profile_complete: true }).eq('id', user.id),
+        supabase.rpc('handle_signup_worker_profile', {
+          p_user_id: user.id, p_skills: skills, p_bio: null,
+          p_cnic: formatCNICDisplay(cnic), p_cnic_front_url: cnicFrontUrl, p_cnic_back_url: cnicBackUrl,
+          p_certificate_urls: null,
+        }),
+      ]))
+      if (usersRes.error) throw usersRes.error
+      if (profileRes.error) throw profileRes.error
 
       await refreshUser()
-      toast.success('Profile completed!')
-      nav('/worker/dashboard', { replace: true })
+      nav('/worker/pending-approval', { replace: true })
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : JSON.stringify(e)
-      if (msg.includes('phone_unique') || msg.includes('users_phone_unique'))
-        toast.error('This phone number is already registered with another account.')
-      else
+      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message || ''
+      if (msg.includes('phone_unique')) {
+        setErrors({ phone: 'This phone number is already registered with another account.' })
+        setStep(0)
+      } else {
         toast.error(msg || 'Something went wrong. Try again.')
+      }
     } finally {
       setLoading(false)
       lockRef.current = false
@@ -128,11 +124,9 @@ export default function CompleteWorkerProfile() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
       <div className="bg-primary px-6 pt-10 pb-6 rounded-b-3xl">
         <p className="text-white text-xl font-bold mb-1 text-center">Complete Your Profile</p>
-        {/* Progress dots */}
-        <div className="flex justify-center gap-2 mt-3">
+        <div className="flex justify-center gap-4 mt-3">
           {STEPS.map((s, i) => (
             <div key={s} className="flex flex-col items-center gap-1">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${i <= step ? 'bg-white text-primary' : 'bg-white/20 text-white/50'}`}>
@@ -144,7 +138,6 @@ export default function CompleteWorkerProfile() {
         </div>
       </div>
 
-      {/* Google profile preview */}
       {user && (
         <div className="flex items-center gap-3 mx-6 mt-5 bg-surface rounded-2xl px-4 py-3">
           {user.profile_photo_url ? (
@@ -162,16 +155,16 @@ export default function CompleteWorkerProfile() {
       )}
 
       <div className="flex-1 px-6 py-5 overflow-y-auto pb-10 space-y-5">
-
-        {/* Step 0 — Skills, city, phone */}
         {step === 0 && (
           <div className="space-y-5 animate-fade-in">
             <div>
-              <label className="section-title">Select Your Skills *</label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <label className="section-title">Select Your Skills (Max {MAX_WORKER_SKILLS}) *</label>
+              <p className="text-xs text-text-muted">{skills.length}/{MAX_WORKER_SKILLS} selected</p>
+              <div className={`grid grid-cols-2 gap-2 mt-2 ${errors.skills ? 'p-1 rounded-xl border border-danger' : ''}`}>
                 {WORKER_SKILL_CATEGORIES.map(cat => (
                   <button
                     key={cat.name}
+                    type="button"
                     onClick={() => toggleSkill(cat.name)}
                     className={`flex items-center gap-2 px-3 py-3 rounded-xl border text-sm transition ${skills.includes(cat.name) ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-text-secondary'}`}
                   >
@@ -181,107 +174,75 @@ export default function CompleteWorkerProfile() {
                   </button>
                 ))}
               </div>
+              <FieldError message={errors.skills} />
             </div>
             <div>
               <label className="text-sm font-medium text-text-primary mb-1.5 block">City *</label>
-              <select value={city} onChange={e => setCity(e.target.value)} className={!city ? 'text-text-muted' : ''}>
+              <select value={city} onChange={e => { setCity(e.target.value); clearError('city') }}
+                className={`${!city ? 'text-text-muted' : ''} ${errors.city ? 'field-error' : ''}`}>
                 <option value="">Select city</option>
                 {PAKISTAN_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+              <FieldError message={errors.city} />
             </div>
             <div>
               <label className="text-sm font-medium text-text-primary mb-1.5 block">Phone Number *</label>
-              <input
-                type="tel"
-                placeholder="03001234567"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-              />
+              <input type="tel" placeholder="03001234567" value={phone} maxLength={11}
+                onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 11)); clearError('phone') }}
+                className={errors.phone ? 'field-error' : ''} />
+              <FieldError message={errors.phone} />
             </div>
           </div>
         )}
 
-        {/* Step 1 — Documents */}
         {step === 1 && (
           <div className="space-y-5 animate-fade-in">
             <div className="bg-surface rounded-2xl p-4 space-y-4">
               <p className="text-sm font-semibold text-text-primary">CNIC Verification *</p>
               <div>
                 <label className="text-sm text-text-secondary mb-1.5 block">CNIC Number *</label>
-                <input
-                  placeholder="12345-1234567-1"
-                  value={cnic}
-                  onChange={e => setCnic(e.target.value)}
-                  maxLength={15}
-                />
+                <input placeholder="12345-1234567-1" value={cnic} maxLength={15}
+                  onChange={e => { setCnic(e.target.value.replace(/[^0-9-]/g, '')); clearError('cnic') }}
+                  className={errors.cnic ? 'field-error' : ''} />
+                <FieldError message={errors.cnic} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <label className="cursor-pointer">
-                  <div className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition ${cnicFront ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                    {cnicFront ? <IoCheckmarkCircle size={28} className="text-primary" /> : <IoCloudUpload size={28} className="text-text-muted" />}
-                    <span className="text-xs text-text-secondary">{cnicFront ? 'Front ✓' : 'CNIC Front *'}</span>
+                {([
+                  { key: 'cnicFront', file: cnicFront, set: setCnicFront, label: 'CNIC Front' },
+                  { key: 'cnicBack', file: cnicBack, set: setCnicBack, label: 'CNIC Back' },
+                ] as const).map(f => (
+                  <div key={f.key}>
+                    <label className="cursor-pointer block">
+                      <div className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition ${errors[f.key] ? 'border-danger bg-red-50' : f.file ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        {f.file ? <IoCheckmarkCircle size={28} className="text-primary" /> : <IoCloudUpload size={28} className="text-text-muted" />}
+                        <span className="text-xs text-text-secondary">{f.file ? `${f.label} ✓` : `${f.label} *`}</span>
+                      </div>
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={e => { f.set(e.target.files?.[0] || null); clearError(f.key) }} />
+                    </label>
+                    <FieldError message={errors[f.key]} />
                   </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={e => setCnicFront(e.target.files?.[0] || null)} />
-                </label>
-                <label className="cursor-pointer">
-                  <div className={`h-28 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 transition ${cnicBack ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                    {cnicBack ? <IoCheckmarkCircle size={28} className="text-primary" /> : <IoCloudUpload size={28} className="text-text-muted" />}
-                    <span className="text-xs text-text-secondary">{cnicBack ? 'Back ✓' : 'CNIC Back *'}</span>
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={e => setCnicBack(e.target.files?.[0] || null)} />
-                </label>
+                ))}
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium text-text-primary mb-1.5 block">Certificates <span className="text-text-muted font-normal">(optional)</span></label>
-              <label className="cursor-pointer">
-                <div className="h-20 rounded-xl border-2 border-dashed border-border flex items-center justify-center gap-2">
-                  <IoCloudUpload size={22} className="text-text-muted" />
-                  <span className="text-sm text-text-muted">
-                    {certificates.length > 0 ? `${certificates.length} file(s) selected` : 'Upload certificates'}
-                  </span>
-                </div>
-                <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={e => setCertificates(Array.from(e.target.files || []))} />
-              </label>
+            <div className="card p-5 space-y-3">
+              <p className="text-base font-semibold text-text-primary">Summary</p>
+              <div className="flex justify-between text-sm"><span className="text-text-muted">City</span><span className="font-medium">{city}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-text-muted">Phone</span><span className="font-medium">{phone}</span></div>
+              <div className="flex justify-between text-sm gap-3"><span className="text-text-muted">Skills</span><span className="font-medium text-right">{skills.join(', ')}</span></div>
             </div>
           </div>
         )}
 
-        {/* Step 2 — Bio */}
-        {step === 2 && (
-          <div className="space-y-5 animate-fade-in">
-            <div>
-              <label className="text-sm font-medium text-text-primary mb-1.5 block">Tell customers about yourself</label>
-              <textarea
-                rows={5}
-                placeholder="I have 5 years of experience in electrical work..."
-                value={bio}
-                onChange={e => setBio(e.target.value)}
-                className="resize-none"
-              />
-              <p className="text-xs text-text-muted mt-1">{bio.length}/500</p>
-            </div>
-            <div className="card p-4 space-y-1">
-              <p className="text-sm font-semibold text-text-primary mb-2">Summary</p>
-              <p className="text-xs text-text-secondary">City: {city}</p>
-              <p className="text-xs text-text-secondary">Skills: {skills.join(', ')}</p>
-              <p className="text-xs text-text-secondary">CNIC: {formatCNICDisplay(cnic)}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
         <div className="space-y-3 mt-2">
-          {step < 2 ? (
+          {step === 0 ? (
             <button onClick={nextStep} className="btn-primary">Next</button>
           ) : (
             <button onClick={handleSubmit} disabled={loading} className="btn-primary">
               {loading ? 'Saving…' : 'Complete Profile'}
             </button>
           )}
-          {step > 0 && (
-            <button onClick={() => setStep(s => s - 1)} className="btn-ghost">Back</button>
-          )}
+          {step > 0 && <button onClick={() => setStep(0)} className="btn-ghost">Back</button>}
         </div>
       </div>
     </div>

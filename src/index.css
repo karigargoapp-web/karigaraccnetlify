@@ -208,3 +208,13 @@ input::placeholder, textarea::placeholder {
   0%, 100% { opacity: 0.5; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.5); }
 }
+
+input.field-error, select.field-error, textarea.field-error {
+  border-color: #CC3300 !important;
+  background-color: #fff5f2;
+}
+.field-error-text {
+  color: #CC3300;
+  font-size: 11px;
+  margin-top: 4px;
+}

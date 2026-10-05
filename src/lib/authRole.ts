@@ -9,6 +9,15 @@ function hasEmailPasswordIdentity(user: { identities?: { provider: string }[] | 
   return !!user.identities?.some(i => i.provider === 'email')
 }
 
+export async function rejectIfEmailUnconfirmed(user: {
+  email_confirmed_at?: string | null
+  identities?: { provider: string }[] | null
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (user.email_confirmed_at || !hasEmailPasswordIdentity(user)) return { ok: true }
+  await supabase.auth.signOut({ scope: 'local' })
+  return { ok: false, message: VERIFY_EMAIL_MSG }
+}
+
 /**
  * After password sign-in (or when enforcing policy), require a confirmed email for
  * email/password accounts. OAuth users typically have `email_confirmed_at` set by Supabase.
