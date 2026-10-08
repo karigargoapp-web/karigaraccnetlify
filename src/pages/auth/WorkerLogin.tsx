@@ -135,7 +135,7 @@ export default function WorkerLogin() {
       <div className="bg-primary px-6 pt-12 pb-8 rounded-b-3xl text-center relative">
         <button
           onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')}
-          className="absolute top-8 right-4 flex items-center gap-1.5 px-2.5 py-1.5 bg-white/20 rounded-lg text-xs text-white"
+          className="absolute top-8 right-4 flex items-center gap-1.5 px-3 py-2.5 min-h-[40px] bg-white/20 rounded-lg text-xs text-white"
         >
           <IoLanguage size={14} />
           <span>{language === 'ur' ? 'اردو' : 'EN'}</span>
@@ -207,7 +207,7 @@ export default function WorkerLogin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(s => !s)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted w-11 h-11 flex items-center justify-center"
                 >
                   {showPassword ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
                 </button>

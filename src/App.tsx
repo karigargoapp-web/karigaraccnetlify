@@ -7,6 +7,7 @@ export default function App() {
     <>
       <Toaster
         position="top-center"
+        containerStyle={{ top: 'calc(var(--sat) + 12px)', left: 12, right: 12 }}
         toastOptions={{
           style: { fontSize: '14px', borderRadius: '12px' },
           success: { iconTheme: { primary: '#006600', secondary: '#fff' } },

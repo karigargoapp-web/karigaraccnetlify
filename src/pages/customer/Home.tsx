@@ -152,7 +152,7 @@ export default function CustomerHome() {
         {/* Ongoing Jobs */}
         <div className="flex items-center justify-between mt-6 mb-3">
           <p className="section-title !mb-0">{t('ongoingJobs')}</p>
-          <button onClick={() => nav('/customer/my-jobs')} className="text-sm text-primary font-medium">{t('viewAll')}</button>
+          <button onClick={() => nav('/customer/my-jobs')} className="text-sm text-primary font-medium py-2.5 pl-3">{t('viewAll')}</button>
         </div>
 
         {loading ? (

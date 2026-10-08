@@ -338,7 +338,7 @@ export default function CustomerSignup() {
       {/* Language Toggle - Bottom Right */}
       <button
         onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')}
-        className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-2 bg-white/90 rounded-lg shadow-sm text-sm text-text-primary z-10"
+        className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-2.5 min-h-[44px] bg-white/90 rounded-lg shadow-sm text-sm text-text-primary z-10"
       >
         <IoLanguage size={16} className="text-primary" />
         <span>{language === 'ur' ? 'اردو' : 'EN'}</span>

@@ -26,6 +26,15 @@ export default {
       maxWidth: {
         mobile: '430px',
       },
+      minHeight: {
+        screen: ['100vh', '100dvh'],
+      },
+      height: {
+        screen: ['100vh', '100dvh'],
+      },
+      maxHeight: {
+        screen: ['100vh', '100dvh'],
+      },
       borderRadius: {
         card: '12px',
       },

@@ -89,7 +89,7 @@ export default function RaiseDisputeModal({ job, type, onClose, onSubmitted }: P
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-6 max-h-[88vh] overflow-y-auto animate-slide-up">
+      <div className="bg-white w-full max-w-[430px] rounded-t-3xl p-6 max-h-[88dvh] overflow-y-auto animate-slide-up">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center">

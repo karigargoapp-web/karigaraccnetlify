@@ -11,26 +11,67 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+:root {
+  --sat: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --sab: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --sal: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --sar: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+}
+
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+  height: 100%;
+}
+
+button, a, [role="button"], label {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background-color: #e5e5e5;
   color: #333;
   overflow-x: hidden;
+  min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  padding-left: var(--sal);
+  padding-right: var(--sar);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--sat);
+  background-color: #006600;
+  z-index: 200;
+  pointer-events: none;
 }
 
 #root {
-  min-height: 100dvh;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   justify-content: center;
   background-color: #e5e5e5;
+  padding-top: var(--sat);
+  padding-bottom: var(--sab);
 }
 
 /* Mobile shell — phone width on desktop, full width on real phones */
@@ -38,6 +79,7 @@ body {
   width: 100%;
   max-width: 430px;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f5f5f5;
   position: relative;
   box-shadow: 0 0 60px rgba(0,0,0,0.12);
@@ -57,7 +99,7 @@ body {
   }
   .app-shell {
     max-width: 100% !important;
-    width: 100vw !important;
+    width: 100% !important;
     box-shadow: none !important;
   }
   .bottom-nav {
@@ -119,6 +161,19 @@ body {
 input, textarea, select {
   @apply w-full px-4 py-3 rounded-xl border border-border bg-white text-sm text-text-primary outline-none transition-all duration-200;
 }
+input, textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type="file"] { padding: 0.5rem; }
+input[type="date"], input[type="time"] { min-height: 48px; }
+
+@media (hover: none) and (pointer: coarse), (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
 input:focus, textarea:focus, select:focus {
   @apply border-primary ring-2 ring-primary/10;
 }
@@ -144,10 +199,15 @@ input::placeholder, textarea::placeholder {
 .top-bar {
   @apply bg-primary px-6 pt-10 pb-6 rounded-b-3xl;
 }
+.top-bar button {
+  min-width: 36px;
+  min-height: 36px;
+}
 
 /* ===== Bottom Nav ===== */
 .bottom-nav {
-  @apply flex justify-around items-center bg-white border-t border-border py-3 pb-6;
+  @apply flex justify-around items-center bg-white border-t border-border pt-3;
+  padding-bottom: max(1.5rem, calc(var(--sab) + 0.75rem));
   position: fixed;
   bottom: 0;
   left: 50%;
@@ -167,6 +227,9 @@ input::placeholder, textarea::placeholder {
 
 .bottom-nav button {
   @apply flex flex-col items-center gap-1 text-text-muted text-xs;
+  min-width: 56px;
+  min-height: 44px;
+  justify-content: center;
 }
 .bottom-nav button.active {
   @apply text-primary font-medium;
@@ -181,6 +244,30 @@ input::placeholder, textarea::placeholder {
 .leaflet-container {
   border-radius: 12px;
   z-index: 1;
+  touch-action: pan-x pan-y;
+}
+
+/* Icon-only buttons get a 40px hit area */
+button:has(> svg:only-child) {
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.top-bar button:has(> svg:only-child) {
+  margin-left: -8px;
+}
+
+/* Bottom sheets and modals clear the home indicator */
+.animate-slide-up {
+  padding-bottom: max(1.5rem, calc(var(--sab) + 1rem));
+}
+
+/* Very small phones (320px wide) */
+@media (max-width: 340px) {
+  .top-bar, .px-6 { padding-left: 1rem; padding-right: 1rem; }
+  html { font-size: 15px; }
 }
 
 /* ===== Stars ===== */

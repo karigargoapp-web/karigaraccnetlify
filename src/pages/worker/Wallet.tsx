@@ -44,7 +44,7 @@ function WithdrawSection({ withdrawable, lockedBonus, onSuccess }: { withdrawabl
           <p className="text-xs text-text-muted">Withdrawable: ₨{withdrawable.toLocaleString()}</p>
         </div>
       </div>
-      <span className="text-xs bg-primary text-white px-3 py-1.5 rounded-full font-medium">Withdraw</span>
+      <span className="text-xs bg-primary text-white px-3.5 py-2.5 rounded-full font-medium">Withdraw</span>
     </button>
   )
 

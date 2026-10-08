@@ -444,7 +444,7 @@ export default function PostJob() {
           <button
             type="button"
             onClick={() => setShowMap(v => !v)}
-            className="mt-2 text-xs text-primary font-medium flex items-center gap-1"
+            className="mt-1 py-2.5 text-xs text-primary font-medium flex items-center gap-1"
           >
             📍 {showMap ? 'Hide map' : 'Pick on map'}
           </button>

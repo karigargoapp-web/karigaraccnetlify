@@ -99,7 +99,7 @@ export default function ResetPassword() {
                 <button
                   type="button"
                   onClick={() => setShowPw(s => !s)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-muted"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted w-11 h-11 flex items-center justify-center"
                 >
                   {showPw ? <IoEyeOffOutline size={18} /> : <IoEyeOutline size={18} />}
                 </button>

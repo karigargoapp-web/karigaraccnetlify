@@ -203,7 +203,7 @@ export default function MyJobs() {
                       <>
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-sm font-medium text-text-primary">Bids Received</p>
-                          <button onClick={() => nav(`/customer/job/${job.id}`)} className="text-xs text-primary font-medium">View All</button>
+                          <button onClick={() => nav(`/customer/job/${job.id}`)} className="text-xs text-primary font-medium py-2.5 pl-3">View All</button>
                         </div>
                         <div className="space-y-3">
                           {jobBids.slice(0, 3).map(bid => (

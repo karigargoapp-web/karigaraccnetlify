@@ -23,7 +23,7 @@ function PasswordInput({ value, onChange, placeholder, hasError }: {
         onChange={e => onChange(e.target.value)}
         className={`w-full pr-10 ${hasError ? 'field-error' : ''}`}
       />
-      <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
+      <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted w-11 h-11 flex items-center justify-center">
         {show ? <IoEyeOff size={18} /> : <IoEye size={18} />}
       </button>
     </div>

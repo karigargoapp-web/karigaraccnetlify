@@ -189,7 +189,7 @@ export default function WorkerDashboard() {
         <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1 scrollbar-none mb-4">
           <button
             onClick={() => setFilter('')}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+            className={`shrink-0 px-3.5 py-2.5 rounded-full text-xs font-medium transition ${
               !filter ? 'bg-primary text-white' : 'bg-white border border-border text-text-secondary'
             }`}
           >
@@ -202,7 +202,7 @@ export default function WorkerDashboard() {
               <button
                 key={skill}
                 onClick={() => setFilter(filter === jobCategory ? '' : jobCategory)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                className={`shrink-0 px-3.5 py-2.5 rounded-full text-xs font-medium transition ${
                   filter === jobCategory ? 'bg-primary text-white' : 'bg-white border border-border text-text-secondary'
                 }`}
               >

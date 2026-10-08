@@ -296,7 +296,7 @@ export default function TrackingScreen() {
                 <span className="text-xs text-gray-500">{workerJobs} jobs done</span>
               </div>
             </div>
-            <span className={`text-xs font-semibold px-3 py-1.5 rounded-full shrink-0 ${
+            <span className={`text-xs font-semibold px-3.5 py-2.5 rounded-full shrink-0 ${
               job?.status === 'bidAccepted' ? 'bg-blue-100 text-blue-700' :
               job?.status === 'workCostAccepted' ? 'bg-green-100 text-green-700' :
               job?.status === 'completed' ? 'bg-gray-100 text-gray-600' :
